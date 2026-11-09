@@ -1,0 +1,3 @@
+# GitHub logins of the Disposable team, one per line. Only the team changes files
+# outside tools/, reviewed.json and this list. Changes here need a team review (CODEOWNERS).
+x-ify

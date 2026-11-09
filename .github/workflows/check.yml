@@ -1,0 +1,30 @@
+name: Check tools
+# Runs the base branch's checker against the pull request's files. Nothing from the
+# pull request is executed, no secrets are available, and the token is read-only.
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the pull request as data
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: pr
+          persist-credentials: false
+      - name: Check out the base branch rules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Check changed tools
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: node base/.github/scripts/pr-check.mjs --base base --head pr --author "$AUTHOR"

@@ -1,0 +1,22 @@
+name: I rebuilt it
+description: Tell the maker you rebuilt a tool with your own agent.
+title: "[tool-slug] Rebuilt it"
+labels: [rebuilt-it]
+body:
+  - type: markdown
+    attributes:
+      value: Keep the tool's name in brackets at the start of the title. Rebuilds show the rebuild section was clear enough to follow.
+  - type: input
+    id: agent
+    attributes:
+      label: Which agent or AI tool did you use?
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: What did you change for your own use?
+  - type: textarea
+    id: unclear
+    attributes:
+      label: Was anything in the rebuild section unclear?

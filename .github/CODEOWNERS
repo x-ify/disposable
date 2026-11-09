@@ -1,0 +1,7 @@
+# Repository policy changes require the project owner review.
+# Tool folders are owned by their maintainers through the pull request check, not here.
+/.github/       @x-ify
+/skills/        @x-ify
+/reviewed.json  @x-ify
+/FORMAT.md      @x-ify
+/README.md      @x-ify

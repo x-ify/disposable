@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Problem with the Disposable site
+    url: https://disposable.xify.kr/en/feedback
+    about: Bugs, ideas or translation issues for the site itself. Private, no account needed.
+  - name: Report a harmful tool
+    url: https://disposable.xify.kr/en/
+    about: Open the tool's page and use "Report content". Reports are private.

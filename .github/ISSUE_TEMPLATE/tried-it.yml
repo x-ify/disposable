@@ -1,0 +1,26 @@
+name: I tried it
+description: Tell the maker you used a tool and how it went.
+title: "[tool-slug] Tried it"
+labels: [tried-it]
+body:
+  - type: markdown
+    attributes:
+      value: Keep the tool's name in brackets at the start of the title. This tells the maker their tool helped someone, which is the main signal Disposable cares about.
+  - type: dropdown
+    id: result
+    attributes:
+      label: Did it work for you?
+      options: ["Yes", "Partly", "No"]
+    validations:
+      required: true
+  - type: textarea
+    id: used-for
+    attributes:
+      label: What did you use it for?
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Your setup (optional)
+      description: For example macOS 15 and Chrome, or the AI agent you used.

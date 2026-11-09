@@ -1,0 +1,24 @@
+name: Label tool issues
+# Adds a tool:<slug> label when an issue title starts with [slug] and that tool exists.
+# The title is only matched against a strict pattern; it is never passed to a shell.
+on:
+  issues:
+    types: [opened, edited]
+permissions:
+  issues: write
+  contents: read
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const match = context.payload.issue.title.match(/^\[([a-z0-9]+(?:-[a-z0-9]+)*)\]/);
+            if (!match || match[1].length > 60) return;
+            const slug = match[1], name = `tool:${slug}`;
+            try { await github.rest.repos.getContent({ ...context.repo, path: `tools/${slug}/DISPOSABLE.md` }); } catch { return; }
+            try { await github.rest.issues.getLabel({ ...context.repo, name }); }
+            catch { await github.rest.issues.createLabel({ ...context.repo, name, color: 'ededed', description: `Issues about tools/${slug}` }); }
+            await github.rest.issues.addLabels({ ...context.repo, issue_number: context.payload.issue.number, labels: [name] });

@@ -1,0 +1,15 @@
+name: Question about a tool
+description: Ask the maker about one tool.
+title: "[tool-slug] "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: Keep the tool's name in brackets at the start of the title, like `[focus-timer]`, so the maker sees it. Problems with the Disposable site itself go to the site's Feedback page.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What you tried, what happened, and what you expected. Never paste passwords, tokens or personal data.
+    validations:
+      required: true
