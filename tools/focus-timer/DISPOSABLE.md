@@ -1,6 +1,6 @@
 ---
 title: A focus timer for one afternoon
-summary: Make a quiet browser timer with just the intervals and controls you need.
+summary: Make a quiet browser timer with the intervals and controls you need.
 type: recipe
 mode: ai
 device: any
