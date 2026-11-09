@@ -1,6 +1,6 @@
 # Disposable
 
-Small tools people actually use, shared so others can run them or rebuild them with their own agent. The site, disposable.xify.kr, lists what is merged here.
+Small tools people actually use, shared so others can run them or rebuild them with their own agent. This repository is the single source of tools and format/risk rules. Merges publish an index that the site, disposable.xify.kr, reads at runtime (cached for 10 minutes); no site redeploy is needed. Network failures use the site’s bundled snapshot.
 
 ## Share a tool
 
@@ -24,3 +24,7 @@ You can also open a pull request yourself: add a folder `tools/<slug>/` followin
 Give your agent the tool's link with the skill installed. It downloads the tool, shows you the full text and any risk signals, and waits for your yes before each step that changes something.
 
 Questions and "I tried it" or "I rebuilt it" notes go to this repository's issues.
+
+## Index pipeline
+
+`main` → **Publish index** → [`index/registry.json`](https://raw.githubusercontent.com/x-ify/disposable/index/registry.json). The deterministic index records the source commit; failed validation publishes nothing. Run `node --test .github/scripts/*.test.mjs` to test the rules and build, or `node .github/scripts/build-index.mjs build` to build locally. See [MAINTAINING.md](MAINTAINING.md) for reviews and operation.

@@ -23,13 +23,17 @@ For the Disposable team. Contributors only need [README.md](README.md) and [FORM
 - The "Check tools" summary lists problems (must be fixed) and notes (risk signals, more than one tool).
 - Read every changed file. The check is a limited text check; a risk signal is a reason to read closely, not a verdict.
 - A maintainer of a tool may change it; anyone else needs that maintainer's approval or the team's.
-- Merge approves the published registry copy. The site currently builds from the monorepo working copy; sync the approved contents there and rebuild the index until repository ingestion is implemented.
+- Merge triggers **Publish index**. It validates folders with the skill checker, inspects pinned external sources, applies `reviewed.json`, and builds a deterministic `registry.json` with `source.repo` and `source.commit`.
+- Only after a successful build does the workflow replace the orphan `index` branch with that one file, authored by `github-actions[bot]`. A failed build leaves the last published index intact. The concurrency group serializes publication; only `main` may publish.
+- The site fetches https://raw.githubusercontent.com/x-ify/disposable/index/registry.json at runtime with a 10-minute cache, so a merged tool appears after publication and cache refresh without a site redeploy. On network or malformed-index failures it uses its bundled snapshot.
+- **Test registry** runs `node --test .github/scripts/*.test.mjs` on PRs and main pushes with a read-only token. **Check tools** still judges PR files using the base branch rules. All actions are pinned to commit SHAs.
+- To retry publication, dispatch **Publish index** on main. To reproduce locally: Node 22+, `node --test .github/scripts/*.test.mjs`, then `node .github/scripts/build-index.mjs build`. The generated file is ignored on main; do not edit the index branch by hand.
 
 ## Clearing a held tool
 
 A tool with a risk signal is merged but stays off the site until it is reviewed.
 
-1. Build the index and note the tool's `version` and `findings`.
+1. Run `node .github/scripts/build-index.mjs build` and note the tool's `version` and `findings`.
 2. If the signals are needed and safe in context, add to `reviewed.json`:
 
    ```json
@@ -40,4 +44,4 @@ A tool with a risk signal is merged but stays off the site until it is reviewed.
 
 ## Removing a tool
 
-Delete the folder in a pull request. It disappears from the site on the next build but stays in git history. If content must leave history too (rights or personal data), that needs a history rewrite and a force push, decided case by case.
+Delete the folder in a pull request. It disappears from the site after index publication and cache refresh but stays in git history. If content must leave history too (rights or personal data), that needs a history rewrite and a force push, decided case by case.
