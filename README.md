@@ -1,6 +1,6 @@
 # Disposable
 
-Small tools people actually use, shared so others can run them or rebuild them with their own agent. This repository is the single source of tools and format/risk rules. Merges publish an index that the site, disposable.xify.kr, reads at runtime (cached for 10 minutes); no site redeploy is needed. Network failures use the site’s bundled snapshot.
+Small tools people actually use, shared so others can run them or rebuild them with their own agent. Every tool here is an **[Open Disposable](OPEN-DISPOSABLE.md)**: open source shares code to maintain together; Open Disposables share what worked, to rebuild on your own. This repository is the single source of tools and format/risk rules. Merges publish an index that the site, disposable.xify.kr, reads at runtime (cached for 10 minutes); no site redeploy is needed. Network failures use the site’s bundled snapshot.
 
 ## Share a tool
 

@@ -10,6 +10,8 @@
 
 This is the skill's own copy of the format. The repository's pull request check enforces the same rules and is the final authority.
 
+Every tool is an **Open Disposable**: a small tool someone actually uses, shared so anyone can run it or rebuild it. Its five principles are used, rebuildable, no promise, read before run, and open; the required `## Rebuild` section and open licenses below come from them.
+
 Every shared tool is a folder `tools/<slug>/` with a `DISPOSABLE.md` file and, optionally, its materials.
 The repository's pull request check enforces everything below. The site only shows merged tools.
 
