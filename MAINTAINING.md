@@ -8,10 +8,10 @@ For the Disposable team. Contributors only need [README.md](README.md) and [FORM
 2. Replace `@OWNER` in `.github/CODEOWNERS` with the team (a user or `@org/team`), and list the team's logins in `.github/team.txt`.
 3. Set `metadata.repository` in `skills/disposable/SKILL.md` to `owner/name`.
 4. Protect `main`:
-   - require a pull request with one approving review and CODEOWNERS review;
+   - require a pull request (no approving review is required while the team is one person; raise this when a second maintainer joins);
    - require the `check` status from "Check tools";
    - block force pushes and deletion;
-   - leave administrator bypass available for the sole owner (`enforce_admins: false`). This means the owner can bypass the review and check requirements.
+   - administrator bypass stays technically available (`enforce_admins: false`), but merges go through the normal path: open a pull request and merge it once `check` passes.
 5. Actions settings:
    - require approval to run workflows for **all external contributors**;
    - default workflow permissions: read repository contents.
