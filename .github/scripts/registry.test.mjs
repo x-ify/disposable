@@ -140,6 +140,39 @@ test('the skill checker CLI reports problems and risk signals for a person to re
   assert.ok(out.includes('risk signal: remote-execution')); assert.ok(out.includes('risk signal: instruction-override'));
   const scanOut = execFileSync('node', [script, 'scan', join(dir, 'tools', 'receipts', 'DISPOSABLE.md')], { encoding: 'utf8' });
   assert.ok(scanOut.includes('not a safety guarantee'));
+  // An unreadable target exits 2 with a message, never 1, which means format problems.
+  const { spawnSync } = await import('node:child_process');
+  for (const [args, hint] of [[['tool', join(dir, 'tools', 'missing')], 'does not exist'], [['tool', join(dir, 'tools', 'receipts', 'DISPOSABLE.md')], 'needs a folder'], [['scan', join(dir, 'tools')], 'single file']]) {
+    const r = spawnSync('node', [script, ...args], { encoding: 'utf8' });
+    assert.equal(r.status, 2, args.join(' ')); assert.ok(r.stderr.includes('cannot read') && r.stderr.includes(hint), r.stderr); assert.equal(r.stdout, '');
+  }
+});
+
+test('the skill publish script rejects missing or invalid options before it calls GitHub', async t => {
+  const { spawnSync } = await import('node:child_process');
+  const script = new URL('../../skills/disposable/scripts/publish.sh', import.meta.url).pathname;
+  const dir = await registry(t, { receipts: { 'DISPOSABLE.md': doc() } });
+  // Stand-ins for gh and git record every call and fail, so no case can reach GitHub.
+  const calls = join(dir, 'calls.log');
+  await mkdir(join(dir, 'bin'));
+  for (const name of ['gh', 'git']) await writeFile(join(dir, 'bin', name), `#!/bin/sh\necho "${name} $*" >> "${calls}"\nexit 99\n`, { mode: 0o755 });
+  await writeFile(join(dir, 'body.md'), 'Adds `tools/receipts`.\n');
+  const valid = { mode: 'add', repo: 'owner/name', slug: 'receipts', title: 'Sort receipts', folder: join(dir, 'tools', 'receipts'), body: join(dir, 'body.md'), name: 'maker-one', email: '1+maker-one@users.noreply.github.com' };
+  const run = (values, extra = []) => spawnSync('bash', [script, ...Object.entries(values).flatMap(([k, v]) => [`--${k}`, v]), ...extra], { encoding: 'utf8', env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } });
+  const { email, ...withoutEmail } = valid;
+  for (const [values, extra, message] of [
+    [{}, [], 'Missing --mode'], [withoutEmail, [], 'Missing --email'], [valid, ['--force'], 'Unknown option'], [valid, ['--mode'], 'Usage'],
+    [{ ...valid, mode: 'delete' }, [], '--mode must be add or update'], [{ ...valid, repo: 'not a repo' }, [], '--repo must be owner/name'],
+    [{ ...valid, slug: 'Bad_Slug' }, [], '--slug must be'], [{ ...valid, slug: 'a'.repeat(61) }, [], '--slug must be'],
+    [{ ...valid, folder: dir }, [], 'containing DISPOSABLE.md'], [{ ...valid, body: join(dir, 'missing.md') }, [], '--body file not found'],
+  ]) {
+    const r = run(values, extra);
+    assert.equal(r.status, 2, message); assert.ok(r.stderr.includes(message), r.stderr);
+  }
+  await assert.rejects(readFile(calls, 'utf8'), { code: 'ENOENT' }, 'an invalid call must not reach gh or git');
+  // Valid options go on to GitHub, here the failing stand-in, and the script stops at the first refusal.
+  const r = run(valid);
+  assert.equal(r.status, 99); assert.equal(await readFile(calls, 'utf8'), 'gh api user --jq .login\n');
 });
 
 test('the pull request check enforces maintainers, scope and format using the base rules', async t => {

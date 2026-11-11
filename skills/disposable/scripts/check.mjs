@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Disposable format and risk-signal checker. Zero dependencies, Node 18+.
 //   node check.mjs tool <tools/slug folder>   exit 0 when the folder follows the format, 1 with a problem list
-//   node check.mjs scan <file>                list risk signals in a downloaded tool (always exit 0; signals are for a person to read)
+//   node check.mjs scan <file>                list risk signals in one file (exit 0; signals are for a person to read)
+// Both exit 2 with a message when the target cannot be read, so it is never mistaken for a format problem.
 // This file is the single source of the format rules: the Disposable repository's pull request check imports it.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { resolve, relative, extname, basename } from 'node:path';
@@ -33,7 +34,7 @@ export const RULES = [
   ['destructive-command', /\brm\s+(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*)\s|\b(?:format\s+[a-z]:|mkfs\b|diskpart\b|Remove-Item\b[^\n]*-Recurse[^\n]*-Force)/i],
   ['remote-execution', /(?:curl|wget)\b[^\n]{0,500}\|\s*(?:sudo\s+)?(?:ba)?sh\b|\b(?:iex|Invoke-Expression)\s*[($]/i],
   ['privilege-or-transfer', /\bsudo\b|\bchmod\s+777\b|(?:curl|wget)\b[^\n]{0,300}(?:--data|-d\s|--upload-file)|\bInvoke-WebRequest\b/i],
-  // Private key files and credential stores. Legitimate SSH or credential tools can be cleared by review (registry/reviewed.json).
+  // Private key files and credential stores. Legitimate SSH or credential tools can be cleared by review (reviewed.json).
   ['secret-access', /\bid_(?:rsa|ed25519|ecdsa|dsa)\b|\.aws\/credentials|\.netrc\b|\bLogin Data\b|\bcookies\.sqlite\b|\bsecurity\s+find-(?:generic|internet)-password\b/i],
   // Instructions aimed at the reader's agent rather than at the task (English, Korean, Japanese, Chinese).
   ['instruction-override', /\b(?:ignore|disregard|forget)\s+(?:(?:all|any|the|your)\s+)*(?:previous|prior|above|earlier|system)\s+(?:instructions|rules|messages|prompts?)\b|이전\s*(?:의\s*)?(?:지시|지침|명령)\S*\s*무시|(?:以前|これまで)の指示を無視|(?:忽略|无视|無視)(?:之前|先前|以上|上面)的?(?:指令|指示|说明|說明)/i],
@@ -162,17 +163,24 @@ export async function checkFolder(dir) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [command, target] = process.argv.slice(2);
-  if (command === 'tool' && target) {
-    const { problems, findings } = await checkFolder(target);
-    for (const p of problems) console.log(`problem: ${p}`);
-    for (const f of findings) console.log(`risk signal: ${f} (the pull request will be held for review)`);
-    if (problems.length || findings.length) process.exit(1);
-    console.log('OK: the folder follows the Disposable format and no risk signal was found.');
-  } else if (command === 'scan' && target) {
-    const findings = scanText(await readFile(target, 'utf8'));
-    console.log(findings.length ? findings.map(f => `risk signal: ${f}`).join('\n') : 'No risk signal found. This is not a safety guarantee; read the full text.');
-  } else {
+  if (!['tool', 'scan'].includes(command) || !target) {
     console.error('Usage: node check.mjs tool <tools/slug folder> | scan <file>');
     process.exit(2);
+  }
+  let result;
+  try {
+    result = command === 'tool' ? await checkFolder(target) : { findings: scanText(await readFile(target, 'utf8')) };
+  } catch (error) {
+    const hint = { ENOENT: 'it does not exist', ENOTDIR: 'tool needs a folder', EISDIR: 'scan needs a single file', EACCES: 'permission denied' }[error.code] || error.message;
+    console.error(`error: cannot read ${target}: ${hint}`);
+    process.exit(2);
+  }
+  if (command === 'tool') {
+    for (const p of result.problems) console.log(`problem: ${p}`);
+    for (const f of result.findings) console.log(`risk signal: ${f} (the pull request will be held for review)`);
+    if (result.problems.length || result.findings.length) process.exit(1);
+    console.log('OK: the folder follows the Disposable format and no risk signal was found.');
+  } else {
+    console.log(result.findings.length ? result.findings.map(f => `risk signal: ${f}`).join('\n') : 'No risk signal found. This is not a safety guarantee; read the full text.');
   }
 }
