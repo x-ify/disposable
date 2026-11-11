@@ -1,7 +1,7 @@
 # DISPOSABLE.md format
 
-Every shared tool is a folder `tools/<slug>/` with a `DISPOSABLE.md` file and, optionally, its materials.
-`scripts/registry.mjs check` enforces everything below on each pull request. The site only shows merged tools.
+Every shared tool is an [Open Disposable](OPEN-DISPOSABLE.md): a folder `tools/<slug>/` with a `DISPOSABLE.md` file and, optionally, its materials.
+The pull request check (`.github/scripts/pr-check.mjs`) enforces everything below. The site only shows merged tools.
 
 ## Folder
 

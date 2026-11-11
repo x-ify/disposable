@@ -10,7 +10,7 @@ metadata:
 
 # Disposable
 
-Disposable is a place to share small tools people actually use, so others can run them or rebuild them with their own agent. Every tool is a folder `tools/<slug>/` with a `DISPOSABLE.md` in a public GitHub repository. A merged pull request is a published tool. There are no site accounts; the pull request author's GitHub account is the publisher.
+Disposable is a place to share small tools people actually use, so others can run them or rebuild them with their own agent. Each one is an **Open Disposable**: used by its maker, rebuildable from a spec, shared with no maintenance promise, read before it runs, and openly licensed. Every tool is a folder `tools/<slug>/` with a `DISPOSABLE.md` in a public GitHub repository. A merged pull request is a published tool. There are no site accounts; the pull request author's GitHub account is the publisher.
 
 ## When to use
 
