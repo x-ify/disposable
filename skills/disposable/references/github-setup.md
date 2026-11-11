@@ -29,10 +29,7 @@ If installing is not possible, stop the publish step and tell them the folder is
 
 ## 4. Sign in (the person approves in the browser)
 
-`gh auth login --web --git-protocol https` prints a one-time code, opens github.com and waits until the person approves. Your shell may time out while it waits, so prefer one of these:
-
-- Ask the person to run it in their own terminal and tell you when it says they are logged in.
-- Or start it in the background, show them the code it printed and https://github.com/login/device, and wait for them to say done.
+`gh auth login --web --git-protocol https` prints a one-time code, opens github.com and waits until the person approves. Your shell may time out while it waits, so start it in the background, show the person the code it printed and https://github.com/login/device, and wait for them to say done. If your environment cannot keep a background command running, ask them to run the command in their own terminal and tell you when it says they are logged in.
 
 The person enters the code on GitHub's page and approves. The code is single-use and harmless to show; you never see their password.
 
