@@ -1,5 +1,5 @@
 // Build-time source checks. The text rules live in the Disposable skill's checker, the single source shared with pull request checks.
-import { scanText, githubRepo, RULES_VERSION } from '../../skills/disposable/scripts/check.mjs';
+import { scanText, githubRepo, isRuleFile, RULES_VERSION } from '../../skills/disposable/scripts/check.mjs';
 export { scanText };
 async function bounded(fetchImpl, url, accept = 'application/vnd.github+json') {
  const response = await fetchImpl(url, { redirect:'error', headers:{Accept:accept,'User-Agent':'Disposable-source-check/0.1'}, signal:AbortSignal.timeout(8000) });
@@ -23,8 +23,9 @@ export async function inspect(data, fetchImpl = globalThis.fetch) {
      const path=(data.sourcePath || '').split('/').filter(Boolean).map(encodeURIComponent).join('/');
      const listing=JSON.parse(await bounded(fetchImpl, `${api}/contents/${path}?ref=${commit.sha}`));
      const items=Array.isArray(listing)?listing:[listing];
-     const candidates=items.filter(f=>typeof f.path==='string' && !f.path.split('/').some(p=>p==='..'||p==='.'||!p) && !/[\\?#\x00-\x1f]/.test(f.path) && f.type==='file' && f.size<=65000 && /(?:\.(?:md|txt|js|mjs|ts|tsx|jsx|py|sh|json|toml|yaml|yml|html|css)|LICENSE)$/i.test(f.name));
-     candidates.sort((a,b)=>(a.name==='SKILL.md'?-1:b.name==='SKILL.md'?1:a.name.localeCompare(b.name)));
+     const candidates=items.filter(f=>typeof f.path==='string' && !f.path.split('/').some(p=>p==='..'||p==='.'||!p) && !/[\\?#\x00-\x1f]/.test(f.path) && f.type==='file' && f.size<=65000 && /(?:\.(?:md|mdc|txt|js|mjs|ts|tsx|jsx|py|sh|json|toml|yaml|yml|html|css)|LICENSE)$/i.test(f.name));
+     const rank=f=>f.name==='SKILL.md'?0:isRuleFile(f.name)?1:2; // the files that show the type are read first
+     candidates.sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name));
      report.partial=true; // Only immediate text files in the selected folder; never a complete repository audit.
      for(const f of candidates.slice(0,8)) {
        if(report.bytes+f.size>256000) break;
@@ -34,7 +35,7 @@ export async function inspect(data, fetchImpl = globalThis.fetch) {
        report.files.push(f.path);report.bytes+=new TextEncoder().encode(text).length;
        report.findings.push(...scanText(text));
      }
-     if(!report.files.length || (data.type==='skill' && !report.files.some(p=>p.split('/').at(-1)==='SKILL.md'))) report.sourceError=true;
+     if(!report.files.length || (data.type==='skill' && !report.files.some(p=>p.split('/').at(-1)==='SKILL.md')) || (data.type==='rule' && !report.files.some(isRuleFile))) report.sourceError=true;
    } catch { report.sourceError=true; }
  }
  report.findings=[...new Set(report.findings)];

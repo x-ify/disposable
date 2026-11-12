@@ -20,6 +20,14 @@ test('bounded GitHub checks pin a revision and skill validation fails closed',as
  const failed=await inspect({...data,sourcePath:''});assert.equal(failed.status,'held');assert.equal(failed.sourceError,true);
 });
 
+test('an external rule is read first and holds the tool when the source has no rule file', async () => {
+ const sha='a'.repeat(40), data={type:'rule',sourceUrl:'https://github.com/example/project',sourcePath:'.cursor/rules',sourceRef:sha};
+ const listing=names=>async url=>String(url).includes('/commits/')?Response.json({sha}):String(url).includes('/contents/')?Response.json(names.map(name=>({name,type:'file',path:`.cursor/rules/${name}`,size:20}))):new Response('- Ask before deleting files.');
+ const many=['a.md','b.md','c.md','d.md','e.md','f.md','g.md','h.md','review.mdc'];
+ const found=await inspect(data,listing(many));assert.equal(found.status,'partial');assert.equal(found.files[0],'.cursor/rules/review.mdc');assert.equal(found.files.length,8);
+ const missing=await inspect(data,listing(['notes.md']));assert.equal(missing.sourceError,true);assert.equal(missing.status,'held');
+});
+
 test('source inspection refuses unpinned or mismatched revisions and oversized bodies', async () => {
  const sha='a'.repeat(40), data={type:'program',sourceUrl:'https://github.com/example/project',sourcePath:'',sourceRef:sha};
  let calls=0;

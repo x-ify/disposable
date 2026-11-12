@@ -3,6 +3,7 @@
 ## Contents
 
 - [Folder](#folder)
+- [Type](#type)
 - [Front matter](#front-matter)
 - [Sections](#sections)
 - [Changes and ownership](#changes-and-ownership)
@@ -21,7 +22,16 @@ The repository's pull request check enforces everything below. The site only sho
 - Up to 100 files and 1 MiB in total. Text files must be UTF-8.
 - Up to 3 images (`.png`, `.jpg`, `.jpeg`, `.webp`), each up to 1 MiB. SVG is not accepted.
 - No executables, libraries or archives. Large or compiled programs stay in their own GitHub repository and are linked with `source`.
-- A `skill` keeps its `SKILL.md` in this folder, or links an external repository with `source`.
+
+## Type
+
+`type` says what the tool is, and its files must show it. The check takes the first line below that matches the files; a different `type` is a problem.
+
+- `skill`: a `SKILL.md` in this folder, or an external `source` that has one.
+- `rule`: an instruction file an agent always follows in a project: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `copilot-instructions.md` or a Cursor rule `*.mdc`, in this folder or in an external `source`.
+- `program`: source code in this folder, or an external `source`. Source code is a file ending in `.js` `.mjs` `.cjs` `.ts` `.tsx` `.jsx` `.vue` `.svelte` `.html` `.htm` `.css` `.py` `.ipynb` `.rb` `.php` `.pl` `.lua` `.r` `.go` `.rs` `.java` `.kt` `.scala` `.swift` `.dart` `.c` `.h` `.cpp` `.hpp` `.cs` `.sh` `.bash` `.zsh` `.ps1` `.bat` `.cmd` `.applescript` `.sql`.
+- `recipe`: none of the above. The instructions are the tool.
+- Hidden files and folders are left out of a tool, so put a rule from `.cursor/rules/` or `.github/` in a visible folder such as `cursor-rules/`.
 
 ## Front matter
 
@@ -31,7 +41,7 @@ Flat `key: value` lines between `---` markers. Lists are comma separated.
 | --- | --- | --- |
 | `title` | yes | What it gets done, up to 100 characters |
 | `summary` | yes | One sentence, up to 240 characters |
-| `type` | yes | `program`, `recipe` or `skill` |
+| `type` | yes | `program`, `recipe`, `skill` or `rule`, as the files show (see Type) |
 | `mode` | yes | `browser`, `local`, `ai` or `source` |
 | `device` | yes | `any`, `windows`, `mac`, `linux` or `mobile` |
 | `language` | yes | Original language: `en`, `ko`, `zh-Hans`, `zh-Hant` or `ja` |

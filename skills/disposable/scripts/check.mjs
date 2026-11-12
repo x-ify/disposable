@@ -8,7 +8,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { resolve, relative, extname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const TYPES = ['program', 'recipe', 'skill'];
+export const TYPES = ['program', 'recipe', 'skill', 'rule'];
 export const MODES = ['browser', 'local', 'ai', 'source'];
 export const DEVICES = ['any', 'windows', 'mac', 'linux', 'mobile'];
 export const LANGUAGES = ['en', 'ko', 'zh-Hans', 'zh-Hant', 'ja'];
@@ -20,6 +20,29 @@ export const LIMITS = { files: 100, bytes: 1024 * 1024, images: 3, imageBytes: 1
 const IMAGE = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 // Executables, libraries and archives cannot be reviewed as text; SVG can carry script.
 const BLOCKED = new Set(['.exe', '.dll', '.so', '.dylib', '.bin', '.com', '.msi', '.dmg', '.pkg', '.app', '.apk', '.ipa', '.jar', '.class', '.zip', '.tar', '.gz', '.tgz', '.bz2', '.xz', '.7z', '.rar', '.iso', '.svg', '.wasm']);
+// The type follows from the files; the first match wins: SKILL.md → skill, a rule file → rule, source code → program, otherwise recipe.
+// Rule files are instructions an agent always follows in a project. Hidden files never ship (readFolder, publish.sh),
+// so copies from .cursor/rules or .github go in a visible folder.
+export const RULE_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'copilot-instructions.md'];
+export const RULE_EXTENSIONS = ['.mdc'];
+export const CODE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.vue', '.svelte', '.html', '.htm', '.css', '.py', '.ipynb', '.rb', '.php', '.pl', '.lua', '.r', '.go', '.rs', '.java', '.kt', '.scala', '.swift', '.dart', '.c', '.h', '.cpp', '.hpp', '.cs', '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd', '.applescript', '.sql'];
+const fileName = path => path.split('/').at(-1);
+export const isRuleFile = path => RULE_FILES.includes(fileName(path)) || RULE_EXTENSIONS.includes(extname(path).toLowerCase());
+const PRECEDENCE = ['skill', 'rule', 'program', 'recipe'];
+const NEEDS = {
+  skill: 'a skill needs SKILL.md in this folder or an external source',
+  rule: `a rule needs a rule file (${RULE_FILES.join(', ')} or *${RULE_EXTENSIONS.join(', *')}) outside hidden folders, or an external source`,
+  program: 'a program needs source code files in this folder or an external source',
+};
+// files: as in validateTool. Returns the type this folder's own files show, and the file that shows it.
+export function typeEvidence(files) {
+  const own = files.filter(f => f.path !== 'DISPOSABLE.md');
+  for (const [type, test] of [['skill', p => fileName(p) === 'SKILL.md'], ['rule', isRuleFile], ['program', p => CODE_EXTENSIONS.includes(extname(p).toLowerCase())]]) {
+    const file = own.find(f => test(f.path));
+    if (file) return { type, path: file.path };
+  }
+  return { type: 'recipe', path: '' };
+}
 export const SECTIONS = { 'Result': 'example', 'Before you start': 'requirements', 'Quick start': 'steps', 'Rebuild': 'rebuild', 'Limits': 'limits' };
 const FIELDS = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added', 'cost', 'support', 'tags', 'origin', 'live', 'source', 'source_path', 'source_commit', 'art'];
 const REQUIRED = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added', 'cost', 'support'];
@@ -128,9 +151,15 @@ export function validateTool(slug, parsed, files, today = new Date().toISOString
   if (files.length > LIMITS.files) problems.push(`more than ${LIMITS.files} files`);
   if (bytes > LIMITS.bytes) problems.push('folder is larger than 1 MiB');
   if (images > LIMITS.images) problems.push(`more than ${LIMITS.images} images`);
-  const own = files.filter(f => f.path !== 'DISPOSABLE.md');
-  if (m.type === 'skill' && !m.source && !own.some(f => f.path.split('/').at(-1) === 'SKILL.md')) problems.push('a skill needs SKILL.md in this folder or an external source');
-  if (m.type === 'program' && !m.source && !own.some(f => f.text != null)) problems.push('a program needs source files in this folder or an external source');
+  if (TYPES.includes(m.type)) {
+    // `source` is not read here. It may hold the SKILL.md or rule file (the index build checks that); otherwise it is code.
+    const found = typeEvidence(files), rank = type => PRECEDENCE.indexOf(type);
+    let expected = found.type;
+    if (m.source && (m.type === 'skill' || m.type === 'rule') && rank(m.type) < rank(found.type)) expected = m.type;
+    else if (m.source && found.type === 'recipe') expected = 'program';
+    if (rank(expected) < rank(m.type)) problems.push(`type is ${m.type}, but ${found.path ? `the folder has ${found.path}` : 'it links code with source'}, so type must be ${expected}`);
+    if (rank(expected) > rank(m.type)) problems.push(`${NEEDS[m.type]}; with the files it has, type must be ${expected}`);
+  }
   return problems;
 }
 

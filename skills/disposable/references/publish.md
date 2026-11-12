@@ -9,7 +9,7 @@ Save it as `~/Disposable/<slug>.pr-body.md` (outside the tool folder). Fill the 
 ```markdown
 Adds `tools/<slug>`: <one-line summary>
 
-- Type: <recipe|program|skill>, use: <mode>, device: <device>
+- Type: <recipe|program|skill|rule>, because <the file or fact that decided it>; use: <mode>, device: <device>
 - How the maker uses it: <their words>
 - License: <license>. The maker confirmed they have the right to share everything in this folder.
 - Risk signals and why they are needed: <none, or each signal with the reason>
