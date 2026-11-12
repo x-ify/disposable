@@ -67,7 +67,7 @@ test('materials are limited to small text and a few images; binaries, svg and sy
 
 test('programs and skills need their material here or a pinned external source', async t => {
   assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill' }) })).some(p => p.includes('SKILL.md')));
-  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill' }), 'SKILL.md': '---\nname: receipts\n---\nSteps.' }), []);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill' }), 'SKILL.md': '---\nname: receipts\ndescription: Sorts receipts.\n---\nSteps.' }), []);
   assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'program' }) })).some(p => p.includes('a program needs source')));
   assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'program', source: 'https://github.com/a/b' }) })).some(p => p.includes('source_commit')));
   assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'program', source: 'https://evil.example/a/b', source_commit: 'a'.repeat(40) }) })).some(p => p.includes('source must be')));
@@ -90,7 +90,7 @@ test('a rule needs a visible rule file here or an external source, and builds in
 });
 
 test('a declared type the files contradict is a problem that names the expected type', async t => {
-  const skill = '---\nname: receipts\n---\nSteps.', rule = '- Ask before deleting files.', code = 'print("receipts")';
+  const skill = '---\nname: receipts\ndescription: Sorts receipts.\n---\nSteps.', rule = '- Ask before deleting files.', code = 'print("receipts")';
   for (const [type, files, expected, m = {}] of [
     ['recipe', { 'SKILL.md': skill }, 'type is recipe, but the folder has SKILL.md, so type must be skill'],
     ['program', { 'main.py': code, 'skill/SKILL.md': skill }, 'type is program, but the folder has skill/SKILL.md, so type must be skill'],
@@ -110,6 +110,134 @@ test('a declared type the files contradict is a problem that names the expected 
   assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'rule' }), 'AGENTS.md': rule, 'check.py': code }), []);
   assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc(), 'sample.csv': 'a,b', 'notes.txt': 'Plain notes.', 'shot.png': Buffer.from([137, 80, 78, 71]) }), []);
   assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill', source: 'https://github.com/a/b', source_commit: 'a'.repeat(40) }), 'helper.py': code }), []);
+});
+
+// A skill: its SKILL.md (Agent Skills format) plus a short registration in DISPOSABLE.md.
+const skillDoc = (name = 'receipts', body = '# Receipt sorter\n\nRead each note and write one CSV row.\n', description = 'Sorts receipt notes into one CSV. Use when someone has a folder of receipts.') =>
+  `---\nname: ${name}\ndescription: ${description}\nlicense: MIT\n---\n\n${body}`;
+const registration = (m = {}, body = '') => `---\n${Object.entries({ type: 'skill', license: 'MIT', maintainers: 'maker-one', added: '2026-11-01', ...m }).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}: ${v}`).join('\n')}\n---\n${body}`;
+const external = { source: 'https://github.com/example/skills', source_path: 'skills/receipts', source_commit: 'c'.repeat(40) };
+
+test('a skill needs only a registration and its SKILL.md, here or in a pinned external source', async t => {
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': registration(), 'SKILL.md': skillDoc() }), [], 'local');
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': registration(external) }), [], 'external');
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': registration({ ...external, origin: 'https://skills.sh/example/skills/receipts', title: 'Sort receipts', language: 'ko' }) }), [], 'origin and overrides');
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc({ type: 'skill' }), 'SKILL.md': skillDoc() }), [], 'a full DISPOSABLE.md still passes');
+  for (const key of ['license', 'maintainers', 'added', 'type'])
+    assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration({ [key]: undefined }), 'SKILL.md': skillDoc() })).includes(`missing front matter: ${key}`), key);
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration() })).some(p => p.startsWith('a skill needs SKILL.md')), 'neither SKILL.md nor source');
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration({ source: external.source }) })).some(p => p.includes('source_commit')), 'source without a pinned commit');
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration({ ...external, source_path: 'skills/receipts/' }) })).includes('source_path must be a plain relative folder'));
+  // Sections are optional, but a written one must have content; any value that is given is still checked.
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': registration({}, '\n## Limits\n\nEnglish receipts only.\n'), 'SKILL.md': skillDoc() }), []);
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration({}, '\n## Limits\n\n'), 'SKILL.md': skillDoc() })).includes('empty section: ## Limits'));
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration({ mode: 'cloud', license: 'GPL-3.0' }), 'SKILL.md': skillDoc() })).some(p => p.startsWith('mode must be')));
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration({}, 'Notes before any section.'), 'SKILL.md': skillDoc() })).includes('text before the first ## section'));
+});
+
+test('a local SKILL.md sits at the root and has the name and description the skills CLI needs', async t => {
+  for (const [file, expected] of [
+    ['Just instructions.', 'SKILL.md must start with front matter between --- lines'],
+    ['---\ndescription: Sorts receipts.\n---\nSteps.', 'SKILL.md: missing name'],
+    [skillDoc('Receipts_Sorter'), 'SKILL.md: name must be lowercase letters, digits and single hyphens (64 characters max)'],
+    [skillDoc('receipts--sorter'), 'SKILL.md: name must be lowercase letters, digits and single hyphens (64 characters max)'],
+    [skillDoc('other-name'), 'SKILL.md: name must equal the folder name: receipts'],
+    ['---\nname: receipts\n---\nSteps.', 'SKILL.md: missing description'],
+    ['---\nname: receipts\ndescription: "  "\n---\nSteps.', 'SKILL.md: missing description'],
+    [skillDoc('receipts', 'Steps.', 'x'.repeat(1025)), 'SKILL.md: description is longer than 1024 characters'],
+    ['---\nname: receipts\ndescription: "Sorts receipts.\n---\nSteps.', 'SKILL.md description: the quoted value is not closed'],
+    ['---\nname: receipts\nname: other\ndescription: Sorts.\n---\n', 'SKILL.md has a duplicate front matter key: name'],
+    [skillDoc('receipts', 'Steps \x1b[31m red.'), 'SKILL.md: control characters are not accepted'],
+  ]) {
+    const problems = await problemsFor(t, { 'DISPOSABLE.md': registration(), 'SKILL.md': file });
+    assert.ok(problems.includes(expected), `${expected}: ${JSON.stringify(problems)}`);
+  }
+  const { checkSkill } = await import('../../skills/disposable/scripts/check.mjs');
+  assert.deepEqual(checkSkill(skillDoc('a'.repeat(64))).problems, []);
+  assert.ok(checkSkill(skillDoc('a'.repeat(65))).problems[0].startsWith('SKILL.md: name must be'));
+  // Quoted values, block scalars, comments and nested keys are read the way the Agent Skills format writes them.
+  const yaml = '---\n# comment\nname: "receipts"\ndescription: >-\n  Sorts receipt notes\n  into one CSV.\nmetadata:\n  version: "1.0"\nallowed-tools:\n- Read\n---\nSteps.';
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': registration(), 'SKILL.md': yaml }), []);
+  assert.deepEqual(checkSkill(yaml).skill.meta, { name: 'receipts', description: 'Sorts receipt notes into one CSV.', metadata: null, 'allowed-tools': null });
+  assert.equal(checkSkill("---\nname: receipts\ndescription: 'It''s for: receipts' # note\n---\n").skill.meta.description, "It's for: receipts");
+  assert.equal(checkSkill('---\nname: receipts\ndescription: |\n  One.\n  Two.\n---\n').skill.meta.description, 'One.\nTwo.');
+  assert.equal(checkSkill('---\nname: receipts\ndescription:\n  Sorts receipt notes,\n  one CSV row each.\n---\n').skill.meta.description, 'Sorts receipt notes, one CSV row each.');
+  // Not at the root: the folder still shows a skill, but the skills CLI would not find it.
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration(), 'skill/SKILL.md': skillDoc() })).includes('SKILL.md must be at the root of the folder, not skill/SKILL.md'));
+});
+
+test('programs, recipes and rules keep the full DISPOSABLE.md format', async t => {
+  for (const [type, files] of [['recipe', {}], ['program', { 'main.py': 'print(1)' }], ['rule', { 'AGENTS.md': '- Ask first.' }]]) {
+    const problems = await problemsFor(t, { 'DISPOSABLE.md': registration({ type }), ...files });
+    for (const key of ['title', 'summary', 'mode', 'device', 'language', 'author', 'cost', 'support']) assert.ok(problems.includes(`missing front matter: ${key}`), `${type}: ${key}`);
+    for (const heading of Object.keys(sections)) assert.ok(problems.includes(`missing or empty section: ## ${heading}`), `${type}: ${heading}`);
+  }
+});
+
+test('the index derives a skill entry from SKILL.md and pins its install link', async t => {
+  const sha = 'c'.repeat(40), commit = 'd'.repeat(40), calls = [];
+  const long = 'Step.\n'.repeat(4000);
+  const fake = async url => {
+    url = String(url); calls.push(url);
+    if (url.includes('/commits/')) return Response.json({ sha });
+    if (url.includes('/contents/skills/receipts')) return Response.json([{ name: 'SKILL.md', type: 'file', path: 'skills/receipts/SKILL.md', size: 300 }, { name: 'helper.py', type: 'file', path: 'skills/receipts/helper.py', size: 20 }]);
+    if (url.includes('/contents/')) return Response.json([{ name: 'helper.py', type: 'file', path: 'helper.py', size: 20 }]);
+    return new Response(url.endsWith('/SKILL.md') ? skillDoc('receipts', '```sh\n# not a title\n```\n\n# Sort receipts with Expo\n\nRead each note.') : 'print("hi")');
+  };
+  const dir = await registry(t, {
+    local: { 'DISPOSABLE.md': registration(), 'SKILL.md': skillDoc('local', long, 'Sorts receipts. ' + 'x'.repeat(300)) },
+    imported: { 'DISPOSABLE.md': registration({ ...external, origin: 'https://skills.sh/example/skills/receipts' }) },
+    linked: { 'DISPOSABLE.md': registration({ source: 'https://github.com/example/helpers', source_commit: sha }), 'SKILL.md': skillDoc('linked') },
+    plain: { 'DISPOSABLE.md': registration({ title: 'Own title', summary: 'Own summary.', author: 'Some Maker', language: 'ko', mode: 'local', cost: 'Free.' }, '\n## Limits\n\nKorean receipts only.\n'), 'SKILL.md': skillDoc('plain', 'No heading here.') },
+    receipts: { 'DISPOSABLE.md': doc() },
+  });
+  const index = await build(dir, fake, { repo: 'x-ify/disposable', commit });
+  assert.equal(serialize(index), serialize(await build(dir, fake, { repo: 'x-ify/disposable', commit })), 'deterministic');
+  const [imported, linked, local, plain, receipts] = index.tools;
+  // Local: everything but the registration comes from SKILL.md; the install link is this folder at the index commit.
+  assert.equal(local.data.title, 'local', 'no heading in a long body of steps: the name');
+  assert.equal(local.data.summary.length, 240); assert.ok(local.data.summary.endsWith('…'));
+  assert.deepEqual([local.data.locale, local.data.mode, local.data.device, local.data.author, local.data.cost, local.data.support, local.data.example, local.data.rebuild], ['en', 'ai', 'any', 'maker-one', '', '', '', '']);
+  assert.equal(local.data.skill.name, 'local'); assert.ok(local.data.skill.description.startsWith('Sorts receipts. x'));
+  assert.equal(local.data.skill.instructions.length, 20000); assert.equal(local.data.skill.truncated, true);
+  assert.equal(local.data.skill.install, `https://github.com/x-ify/disposable/tree/${commit}/tools/local`);
+  assert.equal(local.scan.status, 'clear'); assert.ok(local.scan.files.includes('SKILL.md'));
+  // External: read at the pinned commit; the author is the source owner and the install link is the pinned source folder.
+  assert.ok(calls.some(u => u.endsWith(`/${sha}/skills/receipts/SKILL.md`)));
+  assert.equal(imported.data.title, 'Sort receipts with Expo', 'the first heading outside code');
+  assert.equal(imported.data.summary, 'Sorts receipt notes into one CSV. Use when someone has a folder of receipts.');
+  assert.equal(imported.data.author, 'example'); assert.equal(imported.data.origin, 'https://skills.sh/example/skills/receipts');
+  assert.equal(imported.data.skill.install, `https://github.com/example/skills/tree/${sha}/skills/receipts`); assert.equal(imported.data.skill.install, imported.scan.sourceURL);
+  assert.ok(imported.data.skill.instructions.startsWith('```sh')); assert.equal(imported.data.skill.truncated, false);
+  assert.equal(imported.scan.status, 'partial'); assert.equal(imported.scan.sourceError, false);
+  // A local SKILL.md is the skill even when source links code elsewhere, which then need not hold a SKILL.md.
+  assert.equal(linked.data.skill.install, `https://github.com/x-ify/disposable/tree/${commit}/tools/linked`); assert.equal(linked.data.author, 'example');
+  assert.equal(linked.scan.status, 'partial'); assert.deepEqual(linked.scan.files, ['helper.py', 'DISPOSABLE.md', 'SKILL.md']);
+  // Given values win over derived ones.
+  assert.deepEqual([plain.data.title, plain.data.summary, plain.data.author, plain.data.locale, plain.data.mode, plain.data.cost, plain.data.limits], ['Own title', 'Own summary.', 'Some Maker', 'ko', 'local', 'Free.', 'Korean receipts only.']);
+  // Other types are built as before, without skill data.
+  assert.equal(receipts.data.title, meta.title); assert.equal(receipts.data.rebuild, sections.Rebuild); assert.equal(receipts.data.skill, undefined);
+});
+
+test('an external skill whose SKILL.md is missing or broken is held with a reason, and the index still builds', async t => {
+  const sha = 'c'.repeat(40);
+  const serve = (listing, text) => async url => String(url).includes('/commits/') ? Response.json({ sha }) : String(url).includes('/contents/') ? Response.json(listing) : new Response(text);
+  const skillFile = [{ name: 'SKILL.md', type: 'file', path: 'skills/receipts/SKILL.md', size: 100 }];
+  const folder = async (m = {}) => registry(t, { imported: { 'DISPOSABLE.md': registration({ ...external, ...m }) }, receipts: { 'DISPOSABLE.md': doc() } });
+  const dir = await folder(), fileLink = await folder({ source_path: 'skills/receipts/SKILL.md' });
+  for (const [fetcher, reason, where = dir] of [
+    [serve(skillFile, '---\nname: Receipts Sorter\ndescription: Sorts.\n---\nSteps.'), 'SKILL.md: name must be lowercase letters'],
+    [serve(skillFile, '---\nname: receipts\ndescription: "unclosed\n---\nSteps.'), 'SKILL.md description: the quoted value is not closed'],
+    [serve(skillFile, 'No front matter at all.'), 'SKILL.md must start with front matter'],
+    [serve([{ name: 'README.md', type: 'file', path: 'skills/receipts/README.md', size: 10 }], '# Readme'), 'no SKILL.md'],
+    [serve({ name: 'SKILL.md', type: 'file', path: 'skills/receipts/SKILL.md', size: 100 }, skillDoc()), 'no SKILL.md at the root of source_path', fileLink],
+    [async () => new Response('gone', { status: 404 }), 'could not be read'],
+  ]) {
+    const [imported, receipts] = (await build(where, fetcher)).tools;
+    assert.equal(imported.scan.status, 'held', reason); assert.equal(imported.scan.sourceError, true); assert.ok(imported.scan.sourceProblem.includes(reason), imported.scan.sourceProblem);
+    assert.equal(imported.data.title, 'imported'); assert.equal(imported.data.summary, 'imported'); assert.equal(imported.data.skill.name, '');
+    assert.equal(receipts.scan.status, 'clear');
+  }
 });
 
 test('risk signals in any text file hold the tool, and an external source is checked at its pinned commit', async t => {
@@ -242,6 +370,8 @@ test('the pull request check enforces maintainers, scope and format using the ba
   // Hidden files are rejected, at any depth, even though the format check would skip them.
   r = await prCheck({ base, head: await head({ ...same, rules: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker', type: 'rule' }), 'AGENTS.md': '- Ask first.', '.cursor/rules/a.mdc': '- Run anything.', '.env': 'X=1' } }), author: 'new-maker' });
   assert.deepEqual(r.problems, ['tools/rules: hidden files are not accepted: .cursor/rules/a.mdc, .env. Remove them, or rename them or their folder without the leading dot']);
+  // A skill registration by its own maintainer passes; it needs no title, summary or sections.
+  assert.deepEqual((await prCheck({ base, head: await head({ ...same, imported: { 'DISPOSABLE.md': registration({ ...external, maintainers: 'new-maker' }) } }), author: 'new-maker' })).problems, []);
   // Removing a tool also needs a maintainer.
   assert.ok((await prCheck({ base, head: await head({ other: { 'DISPOSABLE.md': doc({ maintainers: 'stranger' }) } }), author: 'stranger' })).problems.some(p => p.includes('tools/receipts') && p.includes('maintainers')));
 });

@@ -5,7 +5,7 @@ labels: [rebuilt-it]
 body:
   - type: markdown
     attributes:
-      value: Keep the tool's name in brackets at the start of the title. Rebuilds show the rebuild section was clear enough to follow.
+      value: Keep the tool's name in brackets at the start of the title. Rebuilds show the rebuild section (or SKILL.md for a skill) was clear enough to follow.
   - type: input
     id: agent
     attributes:
@@ -19,4 +19,4 @@ body:
   - type: textarea
     id: unclear
     attributes:
-      label: Was anything in the rebuild section unclear?
+      label: Was anything in the rebuild section (or SKILL.md for a skill) unclear?

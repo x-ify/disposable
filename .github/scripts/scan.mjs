@@ -9,12 +9,14 @@ async function bounded(fetchImpl, url, accept = 'application/vnd.github+json') {
  const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.length;}
  return new TextDecoder().decode(bytes);
 }
-export async function inspect(data, fetchImpl = globalThis.fetch) {
+// onFile(path, text) receives each source file that was read, so the index build can use the SKILL.md it fetched.
+// evidence: the type whose file the source must hold (defaults to data.type; '' when the folder itself holds it).
+export async function inspect(data, fetchImpl = globalThis.fetch, { onFile = () => {}, evidence = data.type } = {}) {
  const submitted = [data.title,data.summary,data.example,data.requirements,data.steps,data.limits,data.body,data.cost,data.support].join('\n');
  const report = { version:RULES_VERSION, status:'clear', findings:scanText(submitted), files:[], bytes:new TextEncoder().encode(submitted).length, commit:null, sourceURL:null, partial:false, sourceError:false, scope:'submitted text only; no dependency or binary analysis' };
  if (data.sourceUrl) {
    const repo=githubRepo(data.sourceUrl);
-   if(!repo || !/^[0-9a-f]{40}$/.test(data.sourceRef || '')) {report.sourceError=true;} else try {
+   if(!repo || !/^[0-9a-f]{40}$/.test(data.sourceRef || '')) {report.sourceError=true;report.sourceProblem='source needs a GitHub repository and a full source_commit';} else try {
      const api=`https://api.github.com/repos/${repo.owner}/${repo.repo}`;
      const commit=JSON.parse(await bounded(fetchImpl, `${api}/commits/${encodeURIComponent(data.sourceRef)}`));
      if(commit.sha !== data.sourceRef) throw new Error('invalid-sha');
@@ -34,9 +36,11 @@ export async function inspect(data, fetchImpl = globalThis.fetch) {
        if(report.bytes+new TextEncoder().encode(text).length>256000) throw new Error('source-limit');
        report.files.push(f.path);report.bytes+=new TextEncoder().encode(text).length;
        report.findings.push(...scanText(text));
+       onFile(f.path,text);
      }
-     if(!report.files.length || (data.type==='skill' && !report.files.some(p=>p.split('/').at(-1)==='SKILL.md')) || (data.type==='rule' && !report.files.some(isRuleFile))) report.sourceError=true;
-   } catch { report.sourceError=true; }
+     const missing=!report.files.length?'no readable text file at source_path':evidence==='skill' && !report.files.some(p=>p.split('/').at(-1)==='SKILL.md')?'no SKILL.md (up to 65000 bytes) at source_path':evidence==='rule' && !report.files.some(isRuleFile)?'no rule file at source_path':'';
+     if(missing) {report.sourceError=true;report.sourceProblem=missing;}
+   } catch(error) { report.sourceError=true; report.sourceProblem={'source-limit':'the source is larger than the read limit','invalid-sha':'source_commit is not a commit of source'}[error.message]||'the source could not be read at source_commit'; }
  }
  report.findings=[...new Set(report.findings)];
  report.status=report.findings.length || report.sourceError ? 'held' : report.partial ? 'partial':'clear';

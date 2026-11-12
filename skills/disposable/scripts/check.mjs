@@ -47,6 +47,9 @@ export function typeEvidence(files) {
 export const SECTIONS = { 'Result': 'example', 'Before you start': 'requirements', 'Quick start': 'steps', 'Rebuild': 'rebuild', 'Limits': 'limits' };
 const FIELDS = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added', 'cost', 'support', 'tags', 'origin', 'live', 'source', 'source_path', 'source_commit', 'art'];
 const REQUIRED = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added', 'cost', 'support'];
+// A skill is defined by its SKILL.md (the Agent Skills format used by skills.sh); DISPOSABLE.md only registers it.
+// Everything else is optional for a skill and derived by the index build when absent.
+const SKILL_REQUIRED = ['type', 'license', 'maintainers', 'added'];
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/; // GitHub login rules
 
@@ -109,6 +112,57 @@ export function parseDisposable(text) {
   return { meta, sections, problems };
 }
 
+// SKILL.md front matter, read as the Agent Skills format needs it: top-level `key: value` lines, quoted values,
+// plain values continued on indented lines, and `|` or `>` block scalars. Nested maps and lists (metadata,
+// allowed-tools) are skipped, not interpreted. Lenient where YAML is strict; it only reads, never runs anything.
+export const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
+const unescapeDouble = v => v.replace(/\\(u[0-9a-fA-F]{4}|.)/g, (_, c) => c[0] === 'u' && c.length === 5 ? String.fromCharCode(parseInt(c.slice(1), 16)) : ({ n: '\n', t: '\t', r: '\r', '0': '' })[c] ?? c);
+// Line breaks inside a plain or quoted value fold to a space; an empty line is a line break.
+const fold = lines => lines.map(l => l.trim()).join('\n').replace(/([^\n])\n(?=[^\n])/g, '$1 ').replace(/\n\n+/g, m => '\n'.repeat(m.length - 1));
+export function parseSkill(text) {
+  const match = String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').match(/^---\n(?:([\s\S]*?)\n)?---[ \t]*(?:\n([\s\S]*))?$/);
+  if (!match) return { meta: {}, body: '', problems: ['SKILL.md must start with front matter between --- lines'] };
+  const meta = {}, problems = [], lines = (match[1] || '').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Blank lines, comments, and nested content or list items under a key that holds a map or list.
+    if (!line.trim() || line.startsWith('#') || /^\s/.test(line) || /^-(?:\s|$)/.test(line)) continue;
+    const pair = line.match(/^([A-Za-z0-9_-]+):(?:[ \t]+([^\n]*))?$/);
+    if (!pair) { problems.push(`SKILL.md front matter line is not "key: value": ${line.slice(0, 60)}`); continue; }
+    const key = pair[1], raw = (pair[2] || '').trim(), more = [];
+    while (i + 1 < lines.length && (/^\s/.test(lines[i + 1]) || !lines[i + 1].trim())) more.push(lines[++i]);
+    while (more.length && !more.at(-1).trim()) more.pop();
+    let value;
+    const block = raw.match(/^([|>])[+-]?\d?[+-]?\s*(?:#.*)?$/);
+    if (block) {
+      const indent = (more.find(l => l.trim()) || '').match(/^\s*/)[0].length;
+      const body = more.map(l => l.slice(Math.min(indent, l.match(/^\s*/)[0].length)));
+      value = (block[1] === '|' ? body.join('\n') : fold(body)).replace(/\s+$/, '');
+    } else if (raw.startsWith('"') || raw.startsWith("'")) {
+      const joined = fold([raw, ...more]), quoted = raw[0] === '"' ? joined.match(/^"((?:[^"\\]|\\[\s\S])*)"\s*(?:#.*)?$/) : joined.match(/^'((?:[^']|'')*)'\s*(?:#.*)?$/);
+      if (!quoted) { problems.push(`SKILL.md ${key}: the quoted value is not closed`); continue; }
+      value = raw[0] === '"' ? unescapeDouble(quoted[1]) : quoted[1].replace(/''/g, "'");
+    } else if (!raw && (/^-(?:\s|$)/.test(lines[i + 1] || '') || /^\s+(?:-(?:\s|$)|[^\s#][^:]*:(?:\s|$))/.test(more.find(l => l.trim()) || ''))) value = null; // a nested map or list, not a single value
+    else value = fold([raw, ...more].map(l => l.replace(/\s+#.*$/, ''))).trim(); // a plain value, possibly starting on the next line
+    if (key in meta) problems.push(`SKILL.md has a duplicate front matter key: ${key}`);
+    else meta[key] = value;
+  }
+  return { meta, body: (match[2] || '').trim(), problems };
+}
+// slug: the folder name a local SKILL.md must match; leave empty for a SKILL.md kept in an external source.
+export function checkSkill(text, slug = '') {
+  const skill = parseSkill(text), problems = [...skill.problems];
+  const { name, description } = skill.meta;
+  if (typeof name !== 'string' || !name) problems.push('SKILL.md: missing name');
+  else if (!SKILL_NAME.test(name) || name.length > 64) problems.push('SKILL.md: name must be lowercase letters, digits and single hyphens (64 characters max)');
+  else if (slug && name !== slug) problems.push(`SKILL.md: name must equal the folder name: ${slug}`);
+  if (typeof description !== 'string' || !description.trim()) problems.push('SKILL.md: missing description');
+  else if (description.length > 1024) problems.push('SKILL.md: description is longer than 1024 characters');
+  if (CONTROL.test(text)) problems.push('SKILL.md: control characters are not accepted');
+  return { skill, problems };
+}
+
 function validDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(value + 'T00:00:00Z');
@@ -118,10 +172,11 @@ function validDate(value) {
 // files: [{ path, bytes, text (string or null), symlink? }]
 export function validateTool(slug, parsed, files, today = new Date().toISOString().slice(0, 10)) {
   const problems = [...parsed.problems];
-  const m = parsed.meta || {}, s = parsed.sections || {};
+  const m = parsed.meta || {}, s = parsed.sections || {}, skill = m.type === 'skill';
   if (!SLUG.test(slug) || slug.length > 60) problems.push('folder name must be lowercase letters, digits and single hyphens (60 characters max)');
-  for (const key of REQUIRED) if (!m[key]) problems.push(`missing front matter: ${key}`);
-  for (const [heading, key] of Object.entries(SECTIONS)) if (!s[key]) problems.push(`missing or empty section: ## ${heading}`);
+  for (const key of skill ? SKILL_REQUIRED : REQUIRED) if (!m[key]) problems.push(`missing front matter: ${key}`);
+  // A skill's sections are optional, but one that is written must have content.
+  for (const [heading, key] of Object.entries(SECTIONS)) if (skill ? key in s && !s[key] : !s[key]) problems.push(`${skill ? 'empty section' : 'missing or empty section'}: ## ${heading}`);
   const long = { title: 100, summary: 240, author: 100, tags: 150, cost: 500, support: 500, source_path: 250 };
   for (const [key, max] of Object.entries(long)) if ((m[key] || '').length > max) problems.push(`${key} is longer than ${max} characters`);
   for (const key of Object.values(SECTIONS)) if ((s[key] || '').length > 12000) problems.push(`section ${key} is longer than 12000 characters`);
@@ -139,7 +194,7 @@ export function validateTool(slug, parsed, files, today = new Date().toISOString
   if (m.source && !githubRepo(m.source)) problems.push('source must be https://github.com/owner/repo');
   if (m.source && !/^[0-9a-f]{40}$/.test(m.source_commit || '')) problems.push('source needs source_commit: the full 40-character commit SHA');
   if (!m.source && (m.source_path || m.source_commit)) problems.push('source_path and source_commit need source');
-  if (m.source_path && (m.source_path.split('/').some(v => v === '..' || v === '.') || m.source_path.startsWith('/') || /[\\?#\x00-\x1f]/.test(m.source_path))) problems.push('source_path must be a plain relative folder');
+  if (m.source_path && (m.source_path.split('/').some(v => !v || v === '..' || v === '.') || m.source_path.startsWith('/') || /[\\?#\x00-\x1f]/.test(m.source_path))) problems.push('source_path must be a plain relative folder');
   let bytes = 0, images = 0;
   for (const f of files) {
     bytes += f.bytes;
@@ -160,6 +215,12 @@ export function validateTool(slug, parsed, files, today = new Date().toISOString
     else if (m.source && found.type === 'recipe') expected = 'program';
     if (rank(expected) < rank(m.type)) problems.push(`type is ${m.type}, but ${found.path ? `the folder has ${found.path}` : 'it links code with source'}, so type must be ${expected}`);
     if (rank(expected) > rank(m.type)) problems.push(`${NEEDS[m.type]}; with the files it has, type must be ${expected}`);
+  }
+  if (skill) {
+    // A local SKILL.md sits at the root, as skills.sh and the skills CLI expect; it is the skill even when `source` links code.
+    const root = files.find(f => f.path === 'SKILL.md' && !f.symlink), nested = files.find(f => fileName(f.path) === 'SKILL.md');
+    if (root) { if (root.text != null) problems.push(...checkSkill(root.text, slug).problems); }
+    else if (!m.source && nested) problems.push(`SKILL.md must be at the root of the folder, not ${nested.path}`);
   }
   return problems;
 }
