@@ -21,7 +21,8 @@ const IMAGE = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 // Executables, libraries and archives cannot be reviewed as text; SVG can carry script.
 const BLOCKED = new Set(['.exe', '.dll', '.so', '.dylib', '.bin', '.com', '.msi', '.dmg', '.pkg', '.app', '.apk', '.ipa', '.jar', '.class', '.zip', '.tar', '.gz', '.tgz', '.bz2', '.xz', '.7z', '.rar', '.iso', '.svg', '.wasm']);
 // The type follows from the files; the first match wins: SKILL.md → skill, a rule file → rule, source code → program, otherwise recipe.
-// Rule files are instructions an agent always follows in a project. Hidden files never ship (readFolder, publish.sh),
+// Rule files are instructions an agent always follows in a project. Hidden files never ship (publish.sh removes them,
+// readFolder skips them, the pull request check rejects them),
 // so copies from .cursor/rules or .github go in a visible folder.
 export const RULE_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'copilot-instructions.md'];
 export const RULE_EXTENSIONS = ['.mdc'];

@@ -8,6 +8,7 @@ The pull request check (`.github/scripts/pr-check.mjs`) enforces everything belo
 - `<slug>`: lowercase letters, digits and single hyphens, up to 60 characters. It never changes after merge.
 - Up to 100 files and 1 MiB in total. Text files must be UTF-8.
 - Up to 3 images (`.png`, `.jpg`, `.jpeg`, `.webp`), each up to 1 MiB. SVG is not accepted.
+- No hidden files or folders (names starting with `.`). The pull request check rejects them.
 - No executables, libraries or archives. Large or compiled programs stay in their own GitHub repository and are linked with `source`.
 
 ## Type
@@ -18,7 +19,7 @@ The pull request check (`.github/scripts/pr-check.mjs`) enforces everything belo
 - `rule`: an instruction file an agent always follows in a project: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `copilot-instructions.md` or a Cursor rule `*.mdc`, in this folder or in an external `source`.
 - `program`: source code in this folder, or an external `source`. Source code is a file ending in `.js` `.mjs` `.cjs` `.ts` `.tsx` `.jsx` `.vue` `.svelte` `.html` `.htm` `.css` `.py` `.ipynb` `.rb` `.php` `.pl` `.lua` `.r` `.go` `.rs` `.java` `.kt` `.scala` `.swift` `.dart` `.c` `.h` `.cpp` `.hpp` `.cs` `.sh` `.bash` `.zsh` `.ps1` `.bat` `.cmd` `.applescript` `.sql`.
 - `recipe`: none of the above. The instructions are the tool.
-- Hidden files and folders are left out of a tool, so put a rule from `.cursor/rules/` or `.github/` in a visible folder such as `cursor-rules/`.
+- Hidden files and folders (names starting with `.`) are not accepted, so put a rule from `.cursor/rules/` or `.github/` in a visible folder such as `cursor-rules/`.
 
 ## Front matter
 

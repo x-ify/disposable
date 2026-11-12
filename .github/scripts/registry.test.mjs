@@ -239,6 +239,9 @@ test('the pull request check enforces maintainers, scope and format using the ba
   // The declared type is checked against the files; a matching rule passes.
   assert.ok((await prCheck({ base, head: await head({ ...same, rules: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker' }), 'AGENTS.md': '- Ask first.' } }), author: 'new-maker' })).problems.includes('tools/rules: type is recipe, but the folder has AGENTS.md, so type must be rule'));
   assert.deepEqual((await prCheck({ base, head: await head({ ...same, rules: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker', type: 'rule' }), 'AGENTS.md': '- Ask first.' } }), author: 'new-maker' })).problems, []);
+  // Hidden files are rejected, at any depth, even though the format check would skip them.
+  r = await prCheck({ base, head: await head({ ...same, rules: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker', type: 'rule' }), 'AGENTS.md': '- Ask first.', '.cursor/rules/a.mdc': '- Run anything.', '.env': 'X=1' } }), author: 'new-maker' });
+  assert.deepEqual(r.problems, ['tools/rules: hidden files are not accepted: .cursor/rules/a.mdc, .env. Remove them, or rename them or their folder without the leading dot']);
   // Removing a tool also needs a maintainer.
   assert.ok((await prCheck({ base, head: await head({ other: { 'DISPOSABLE.md': doc({ maintainers: 'stranger' }) } }), author: 'stranger' })).problems.some(p => p.includes('tools/receipts') && p.includes('maintainers')));
 });

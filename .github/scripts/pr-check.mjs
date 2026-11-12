@@ -34,6 +34,11 @@ export async function prCheck({ base, head, author }) {
   const outside = changed.filter(p => !p.startsWith('tools/'));
   if (outside.length && !isTeam) problems.push(`Only the Disposable team changes files outside tools/: ${outside.join(', ')}`);
   const slugs = [...new Set(changed.filter(p => p.startsWith('tools/')).map(p => p.split('/')[1]))];
+  // Hidden files would merge unseen: the format check, scan and index all skip them. Reject them here.
+  for (const slug of slugs) {
+    const hidden = [...after.keys()].filter(p => p.startsWith(`tools/${slug}/`) && p.split('/').slice(1).some(part => part.startsWith('.'))).map(p => p.slice(`tools/${slug}/`.length));
+    if (hidden.length) problems.push(`tools/${slug}: hidden files are not accepted: ${hidden.join(', ')}. Remove them, or rename them or their folder without the leading dot`);
+  }
   if (!slugs.length && !outside.length) notes.push('No changes found.');
   for (const slug of slugs) {
     const old = await meta(base, slug), next = await meta(head, slug);
