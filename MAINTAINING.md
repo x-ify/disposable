@@ -22,6 +22,7 @@ For the Disposable team. Contributors only need [README.md](README.md) and [FORM
 
 - The "Check tools" summary lists problems (must be fixed) and notes (risk signals, more than one tool).
 - Read every changed file. The check is a limited text check; a risk signal is a reason to read closely, not a verdict.
+- A skill registration with an external `source` is checked without reading that source. Open it at `source_commit` under `source_path`, read its `SKILL.md`, and confirm the license, `author` and `origin`. After merge, the index build holds the skill if that `SKILL.md` is missing or breaks the format.
 - A maintainer of a tool may change it; anyone else needs that maintainer's approval or the team's.
 - Merge triggers **Publish index**. It validates folders with the skill checker, inspects pinned external sources, applies `reviewed.json`, and builds a deterministic `registry.json` with `source.repo` and `source.commit`.
 - Only after a successful build does the workflow replace the orphan `index` branch with that one file, authored by `github-actions[bot]`. A failed build leaves the last published index intact. The concurrency group serializes publication; only `main` may publish.
@@ -41,6 +42,8 @@ A tool with a risk signal is merged but stays off the site until it is reviewed.
    ```
 
 3. Merge that change through a reviewed pull request. Any later change to the tool's folder changes its version and needs a new review.
+
+A review cannot clear a tool held because its external `source` could not be read, or because a skill's `SKILL.md` there is missing or breaks the format (`sourceError`; the reason is in `sourceProblem` and printed by the build as `held:`). Its maintainers fix `source_commit` or `source_path` in a new pull request.
 
 ## Removing a tool
 

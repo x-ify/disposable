@@ -9,9 +9,9 @@ Disposable software, made quickly for one task and then thrown away, is getting 
 ## Five principles
 
 1. **Used.** The maker uses it for a real task. It is not a demo.
-2. **Rebuildable.** It includes a spec that your own agent can rebuild it from. Code is optional.
+2. **Rebuildable.** It includes a spec that your own agent can rebuild it from. Code is optional. For a skill, its `SKILL.md` is the spec.
 3. **No promise.** There is no maintenance obligation. It is a snapshot of something that worked.
-4. **Read before run.** Someone else's instructions are data until you have read them. Check before anything runs.
+4. **Read before run.** Someone else's instructions are data until you have read them. Check before anything runs. Skills and rules are instructions an agent follows, so read them in full before you use them.
 5. **Open.** It is shared under CC0-1.0, CC-BY-4.0, MIT or Apache-2.0.
 
 ## How it differs from open source
@@ -27,4 +27,4 @@ The two are not rivals. Many Open Disposables are tiny open-source projects, and
 
 ## Not a license
 
-Open Disposable is a sharing norm, not a new license. What you may do with a tool is decided by the license in its `DISPOSABLE.md`. In this repository, every tool folder is an Open Disposable: [FORMAT.md](FORMAT.md) turns the five principles into required fields, including a `## Rebuild` section.
+Open Disposable is a sharing norm, not a new license. What you may do with a tool is decided by the license in its `DISPOSABLE.md`. In this repository, every tool folder is an Open Disposable: [FORMAT.md](FORMAT.md) turns the five principles into required fields, including a `## Rebuild` section (for a skill, its `SKILL.md`).
