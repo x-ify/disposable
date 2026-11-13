@@ -18,7 +18,7 @@ A tool is a program, a recipe, a skill or a rule (an instruction file an agent a
 
 - Automatic checks run the same rules as `skills/disposable/scripts/check.mjs` (format, size limits, file types and risk signals) and reject hidden files.
 - The Disposable team reviews and merges. Your GitHub account is shown as the publisher; only the listed `maintainers` change the folder later.
-- Choose an open license (CC0-1.0, CC-BY-4.0, MIT or Apache-2.0). Removing a tool later does not remove it from git history, so never include personal data or secrets.
+- License: by default CC0-1.0 for text you wrote and MIT for code; something from another repository keeps its own license, which must be CC0-1.0, CC-BY-4.0, MIT or Apache-2.0. By opening a pull request you confirm you may share it; Disposable republishes merged tools under their license with attribution. Removing a tool later does not remove it from git history, so never include personal data or secrets.
 - Checks are limited static text checks. Merging is not a safety guarantee.
 
 ## Use or rebuild a tool
