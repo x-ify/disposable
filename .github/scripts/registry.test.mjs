@@ -166,12 +166,26 @@ test('a local SKILL.md sits at the root and has the name and description the ski
   assert.ok((await problemsFor(t, { 'DISPOSABLE.md': registration(), 'skill/SKILL.md': skillDoc() })).includes('SKILL.md must be at the root of the folder, not skill/SKILL.md'));
 });
 
-test('programs, recipes and rules keep the full DISPOSABLE.md format', async t => {
+test('programs, recipes and rules keep their core format; result, needs, limits, cost and support are optional', async t => {
   for (const [type, files] of [['recipe', {}], ['program', { 'main.py': 'print(1)' }], ['rule', { 'AGENTS.md': '- Ask first.' }]]) {
     const problems = await problemsFor(t, { 'DISPOSABLE.md': registration({ type }), ...files });
-    for (const key of ['title', 'summary', 'mode', 'device', 'language', 'author', 'cost', 'support']) assert.ok(problems.includes(`missing front matter: ${key}`), `${type}: ${key}`);
-    for (const heading of Object.keys(sections)) assert.ok(problems.includes(`missing or empty section: ## ${heading}`), `${type}: ${heading}`);
+    for (const key of ['title', 'summary', 'mode', 'device', 'language', 'author']) assert.ok(problems.includes(`missing front matter: ${key}`), `${type}: ${key}`);
+    for (const key of ['cost', 'support']) assert.ok(!problems.includes(`missing front matter: ${key}`), `${type}: ${key} is optional`);
+    for (const heading of ['Quick start', 'Rebuild']) assert.ok(problems.includes(`missing or empty section: ## ${heading}`), `${type}: ${heading}`);
+    for (const heading of ['Result', 'Before you start', 'Limits']) assert.ok(!problems.some(p => p.endsWith(`## ${heading}`)), `${type}: ${heading} is optional`);
   }
+  const minimal = doc({ cost: undefined, support: undefined }, { 'Result': undefined, 'Before you start': undefined, 'Limits': undefined });
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': minimal }), [], 'quick start and rebuild are enough');
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc({}, { 'Limits': '' }) })).includes('empty section: ## Limits'), 'a written section needs content');
+});
+
+test('an optional thumbnail is thumbnail.png at the folder root, up to 256 KiB', async t => {
+  const png = size => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(size - 8)]);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc(), 'thumbnail.png': png(4000) }), []);
+  assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc(), 'thumbnail.png': png(256 * 1024 + 1) })).includes('thumbnail.png is larger than 256 KiB'));
+  for (const name of ['thumbnail.jpg', 'thumbnail.webp', 'thumbnail.PNG'])
+    assert.ok((await problemsFor(t, { 'DISPOSABLE.md': doc(), [name]: png(4000) })).includes(`a thumbnail must be named thumbnail.png (PNG only): ${name}`), name);
+  assert.deepEqual(await problemsFor(t, { 'DISPOSABLE.md': doc(), 'images/thumbnail.jpg': png(4000) }), [], 'only the root name is reserved');
 });
 
 test('the index derives a skill entry from SKILL.md and pins its install link', async t => {
@@ -360,6 +374,15 @@ test('the pull request check enforces maintainers, scope and format using the ba
   // A new tool by its own maintainer passes; risk signals are notes, not failures.
   let r = await prCheck({ base, head: await head({ ...same, timer: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker' }, { Rebuild: 'Copy ~/.ssh/id_rsa somewhere.' }) } }), author: 'new-maker' });
   assert.deepEqual(r.problems, []); assert.deepEqual(r.slugs, ['timer']); assert.ok(r.notes.some(n => n.includes('secret-access')));
+  const risky = { ...same, timer: { 'DISPOSABLE.md': doc({ maintainers: 'new-maker' }, { Rebuild: 'Copy ~/.ssh/id_rsa somewhere.' }) } }, riskyHead = await head(risky);
+  const version = (await build(riskyHead, globalThis.fetch, { repo: 'x-ify/disposable', commit: 'b'.repeat(40) })).tools.find(x => x.slug === 'timer').version;
+  assert.ok((await prCheck({ base, head: riskyHead, author: 'new-maker' })).notes.some(n => n.includes(`"timer": { "version": "${version}"`)), 'the note names the version the index will have');
+  // The team merges the review first: the build accepts an entry for a tool that is not merged yet, then lists it as reviewed.
+  await writeFile(join(base, 'reviewed.json'), JSON.stringify({ tools: { timer: { version, findings: ['secret-access'], reason: 'Reads only its own key.', reviewer: 'disposable-team' } } }));
+  assert.ok((await build(base, globalThis.fetch, { repo: 'x-ify/disposable', commit: 'b'.repeat(40) })).tools.every(x => x.slug !== 'timer'));
+  await writeFile(join(riskyHead, 'reviewed.json'), await readFile(join(base, 'reviewed.json'), 'utf8'));
+  assert.equal((await build(riskyHead, globalThis.fetch, { repo: 'x-ify/disposable', commit: 'b'.repeat(40) })).tools.find(x => x.slug === 'timer').scan.status, 'reviewed');
+  await rm(join(base, 'reviewed.json'));
   // A new tool must list its author.
   r = await prCheck({ base, head: await head({ ...same, timer: { 'DISPOSABLE.md': doc({ maintainers: 'someone-else' }) } }), author: 'new-maker' });
   assert.ok(r.problems.some(p => p.includes('add your GitHub login')));

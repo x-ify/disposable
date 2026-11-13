@@ -13,7 +13,7 @@ For the Disposable team. Contributors only need [README.md](README.md) and [FORM
    - block force pushes and deletion;
    - administrator bypass stays technically available (`enforce_admins: false`), but merges go through the normal path: open a pull request and merge it once `check` passes.
 5. Actions settings:
-   - require approval to run workflows for **all external contributors**;
+   - require approval to run workflows for **first-time contributors who are new to GitHub** (the GitHub default). A fork pull request runs only **Check tools**, which reads it as data with the base branch's rules; **Test registry** skips forks, so no fork code runs;
    - default workflow permissions: read repository contents.
 6. Create the labels `question`, `tried-it` and `rebuilt-it`. `tool:<slug>` labels are created automatically.
 7. Point the site at the repository: set `REGISTRY_REPO` to `https://github.com/owner/name`.
@@ -27,21 +27,21 @@ For the Disposable team. Contributors only need [README.md](README.md) and [FORM
 - Merge triggers **Publish index**. It validates folders with the skill checker, inspects pinned external sources, applies `reviewed.json`, and builds a deterministic `registry.json` with `source.repo` and `source.commit`.
 - Only after a successful build does the workflow replace the orphan `index` branch with that one file, authored by `github-actions[bot]`. A failed build leaves the last published index intact. The concurrency group serializes publication; only `main` may publish.
 - The site fetches https://raw.githubusercontent.com/x-ify/disposable/index/registry.json at runtime with a 10-minute cache, so a merged tool appears after publication and cache refresh without a site redeploy. On network or malformed-index failures it uses its bundled snapshot.
-- **Test registry** runs `node --test .github/scripts/*.test.mjs` on PRs and main pushes with a read-only token. **Check tools** still judges PR files using the base branch rules. All actions are pinned to commit SHAs.
+- **Test registry** runs `node --test .github/scripts/*.test.mjs` on main pushes and on PRs from branches of this repository, with a read-only token; it skips PRs from forks, which would run their own copy of the scripts. **Check tools** still judges PR files using the base branch rules. All actions are pinned to commit SHAs.
 - To retry publication, dispatch **Publish index** on main. To reproduce locally: Node 22+, `node --test .github/scripts/*.test.mjs`, then `node .github/scripts/build-index.mjs build`. The generated file is ignored on main; do not edit the index branch by hand.
 
 ## Clearing a held tool
 
-A tool with a risk signal is merged but stays off the site until it is reviewed.
+A tool with a risk signal stays off the site until it is reviewed. Review it before merging, so it appears as soon as it merges:
 
-1. Run `node .github/scripts/build-index.mjs build` and note the tool's `version` and `findings`.
+1. The pull request check's notes give the tool's `version` and `findings` (the same version the index build computes). For a tool already merged, run `node .github/scripts/build-index.mjs build` instead.
 2. If the signals are needed and safe in context, add to `reviewed.json`:
 
    ```json
    { "tools": { "<slug>": { "version": "<12 hex>", "findings": ["secret-access"], "reason": "Creates a new key for the person; never reads or sends an existing one.", "reviewer": "<login>" } } }
    ```
 
-3. Merge that change through a reviewed pull request. Any later change to the tool's folder changes its version and needs a new review.
+3. Merge that change through its own pull request first, then update the tool's pull request branch (the version covers only the folder, so it does not change) and merge it. Any later change to the tool's folder changes its version and needs a new review.
 
 A review cannot clear a tool held because its external `source` could not be read, or because a skill's `SKILL.md` there is missing or breaks the format (`sourceError`; the reason is in `sourceProblem` and printed by the build as `held:`). Its maintainers fix `source_commit` or `source_path` in a new pull request.
 

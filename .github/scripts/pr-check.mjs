@@ -6,6 +6,7 @@
 import { readdir, readFile, appendFile } from 'node:fs/promises';
 import { resolve, relative, join } from 'node:path';
 import { checkFolder, parseDisposable } from '../../skills/disposable/scripts/check.mjs';
+import { readTools, folderVersion } from './build-index.mjs';
 
 async function listFiles(root, dir = root) {
   const out = new Map();
@@ -53,6 +54,11 @@ export async function prCheck({ base, head, author }) {
     const result = await checkFolder(join(head, 'tools', slug));
     for (const p of result.problems) problems.push(`tools/${slug}: ${p}`);
     for (const f of result.findings) notes.push(`tools/${slug}: risk signal ${f}. After merge the tool stays off the site until the team records a review in reviewed.json.`);
+    if (result.findings.length) {
+      // The same version the index build computes, so a review merged first lets the tool appear as soon as this merges.
+      const tool = (await readTools(head)).find(t => t.slug === slug);
+      if (tool) notes.push(`tools/${slug}: to publish it on merge, the team first merges reviewed.json with "${slug}": { "version": "${folderVersion(tool.files)}", "findings": ${JSON.stringify(result.findings)}, "reason": "…", "reviewer": "<login>" }, then updates this branch.`);
+    }
   }
   if (slugs.length > 1) notes.push('This pull request changes more than one tool; one tool per pull request is easier to review.');
   return { changed, slugs, problems, notes, isTeam };

@@ -46,7 +46,11 @@ export function typeEvidence(files) {
 }
 export const SECTIONS = { 'Result': 'example', 'Before you start': 'requirements', 'Quick start': 'steps', 'Rebuild': 'rebuild', 'Limits': 'limits' };
 const FIELDS = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added', 'cost', 'support', 'tags', 'origin', 'live', 'source', 'source_path', 'source_commit', 'art'];
-const REQUIRED = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added', 'cost', 'support'];
+const REQUIRED = ['title', 'summary', 'type', 'mode', 'device', 'language', 'license', 'maintainers', 'author', 'added'];
+// Every tool except a skill needs these sections; the others are optional (FORMAT.md, Sections).
+const REQUIRED_SECTIONS = ['steps', 'rebuild'];
+// An optional square picture for the site, loaded from GitHub, which serves only PNG as an image (FORMAT.md, Folder).
+export const THUMBNAIL = { path: 'thumbnail.png', bytes: 256 * 1024 };
 // A skill is defined by its SKILL.md (the Agent Skills format used by skills.sh); DISPOSABLE.md only registers it.
 // Everything else is optional for a skill and derived by the index build when absent.
 const SKILL_REQUIRED = ['type', 'license', 'maintainers', 'added'];
@@ -175,8 +179,11 @@ export function validateTool(slug, parsed, files, today = new Date().toISOString
   const m = parsed.meta || {}, s = parsed.sections || {}, skill = m.type === 'skill';
   if (!SLUG.test(slug) || slug.length > 60) problems.push('folder name must be lowercase letters, digits and single hyphens (60 characters max)');
   for (const key of skill ? SKILL_REQUIRED : REQUIRED) if (!m[key]) problems.push(`missing front matter: ${key}`);
-  // A skill's sections are optional, but one that is written must have content.
-  for (const [heading, key] of Object.entries(SECTIONS)) if (skill ? key in s && !s[key] : !s[key]) problems.push(`${skill ? 'empty section' : 'missing or empty section'}: ## ${heading}`);
+  // Quick start and rebuild are required except for a skill; any section that is written must have content.
+  for (const [heading, key] of Object.entries(SECTIONS)) {
+    const needed = !skill && REQUIRED_SECTIONS.includes(key);
+    if (needed ? !s[key] : key in s && !s[key]) problems.push(`${needed ? 'missing or empty section' : 'empty section'}: ## ${heading}`);
+  }
   const long = { title: 100, summary: 240, author: 100, tags: 150, cost: 500, support: 500, source_path: 250 };
   for (const [key, max] of Object.entries(long)) if ((m[key] || '').length > max) problems.push(`${key} is longer than ${max} characters`);
   for (const key of Object.values(SECTIONS)) if ((s[key] || '').length > 12000) problems.push(`section ${key} is longer than 12000 characters`);
@@ -207,6 +214,10 @@ export function validateTool(slug, parsed, files, today = new Date().toISOString
   if (files.length > LIMITS.files) problems.push(`more than ${LIMITS.files} files`);
   if (bytes > LIMITS.bytes) problems.push('folder is larger than 1 MiB');
   if (images > LIMITS.images) problems.push(`more than ${LIMITS.images} images`);
+  for (const f of files.filter(f => /^thumbnail\.[^/]+$/i.test(f.path))) {
+    if (f.path !== THUMBNAIL.path) problems.push(`a thumbnail must be named thumbnail.png (PNG only): ${f.path}`);
+    else if (f.bytes > THUMBNAIL.bytes) problems.push('thumbnail.png is larger than 256 KiB');
+  }
   if (TYPES.includes(m.type)) {
     // `source` is not read here. It may hold the SKILL.md or rule file (the index build checks that); otherwise it is code.
     const found = typeEvidence(files), rank = type => PRECEDENCE.indexOf(type);
