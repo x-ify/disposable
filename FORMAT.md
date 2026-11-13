@@ -8,6 +8,7 @@ The pull request check (`.github/scripts/pr-check.mjs`) enforces everything belo
 - `<slug>`: lowercase letters, digits and single hyphens, up to 60 characters. It never changes after merge.
 - Up to 100 files and 1 MiB in total. Text files must be UTF-8.
 - Up to 3 images (`.png`, `.jpg`, `.jpeg`, `.webp`), each up to 1 MiB. SVG is not accepted.
+- An optional `thumbnail.png` at the root of the folder, up to 256 KiB, replaces the preset picture on the site. Make it square; the site shows it at about 100 pixels. Only PNG: GitHub, where the site loads it from, serves other image types in a way browsers do not show.
 - No hidden files or folders (names starting with `.`). The pull request check rejects them.
 - No executables, libraries or archives. Large or compiled programs stay in their own GitHub repository and are linked with `source`.
 
@@ -37,27 +38,27 @@ Flat `key: value` lines between `---` markers. Lists are comma separated. A skil
 | `maintainers` | yes | GitHub logins allowed to change this folder. The first is shown as the publisher |
 | `author` | yes | Original author or attribution, up to 100 characters |
 | `added` | yes | `YYYY-MM-DD`, set by the first pull request |
-| `cost` | yes | What it may cost to use or rebuild |
-| `support` | yes | Whether the maker answers questions |
+| `cost` | no | What it may cost to use or rebuild |
+| `support` | no | Whether the maker answers questions |
 | `tags` | no | Up to 150 characters |
 | `origin` | no | `https://` link to what this is based on |
 | `live` | no | `https://` link where it already runs |
 | `source` | no | `https://github.com/owner/repo` for code or a skill kept elsewhere |
 | `source_path` | no | Folder inside `source` |
 | `source_commit` | with `source` | Full 40-character commit SHA that was reviewed |
-| `art` | no | Thumbnail style: `files`, `table`, `draw`, `notes`, `timer` or `text` |
+| `art` | no | Preset picture when there is no `thumbnail.png`: `files`, `table`, `draw`, `notes`, `timer` or `text`. Left out, the site picks one from the slug |
 
 ## Sections
 
-These `##` headings, in any order. Write the content in the tool's original language. A skill may leave them out; see [Skills](#skills).
+These `##` headings, in any order. Write the content in the tool's original language. `## Quick start` and `## Rebuild` are required; the others may be left out, and a section that is written must not be empty. A skill may leave them all out; see [Skills](#skills).
 
 | Heading | Required | What to write |
 | --- | --- | --- |
-| `## Result` | yes | Example input and output, as plain text |
-| `## Before you start` | yes | What someone needs first |
+| `## Result` | no | Example input and output, as plain text |
+| `## Before you start` | no | What someone needs first |
 | `## Quick start` | yes | About three steps to use it |
 | `## Rebuild` | yes | Enough of a spec or recipe that someone's own agent can build it again. For a recipe, this is the recipe |
-| `## Limits` | yes | What it does not handle |
+| `## Limits` | no | What it does not handle |
 
 ## Skills
 

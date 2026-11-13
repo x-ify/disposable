@@ -7,6 +7,9 @@ permissions:
   contents: read
 jobs:
   test:
+    # Tests run this repository's own scripts. A pull request from a fork would run its copy of them, so forks get
+    # only "Check tools", which reads the pull request as data with the base branch's rules.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

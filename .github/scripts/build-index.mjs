@@ -31,6 +31,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const defaultRegistry = root;
 export const indexPath = resolve(root, 'registry.json');
 
+// A tool's version: a hash of its folder's paths and bytes. reviewed.json names it, and the pull request check
+// prints it so the team can record a review before merging (MAINTAINING.md).
+export function folderVersion(files) {
+  const hash = createHash('sha256');
+  for (const f of files) hash.update(f.path + '\0').update(f.buffer || '');
+  return hash.digest('hex').slice(0, 12);
+}
+
 export async function readTools(registryDir = defaultRegistry) {
   const toolsDir = resolve(registryDir, 'tools');
   const tools = [];
@@ -69,8 +77,6 @@ export async function build(registryDir = defaultRegistry, fetchImpl = globalThi
       sourceUrl: m.source || '', sourcePath: m.source_path || '', sourceRef: m.source_commit || '',
       example: s.example || '', requirements: s.requirements || '', steps: s.steps || '', rebuild: s.rebuild || '', limits: s.limits || '',
     };
-    const hash = createHash('sha256');
-    for (const f of t.files) hash.update(f.path + '\0').update(f.buffer || '');
     // A skill is the root SKILL.md of this folder, otherwise the one at the root of source_path (read by inspect below).
     const localSkill = data.type === 'skill' ? t.files.find(f => f.path === 'SKILL.md') : null;
     const skillPath = [...data.sourcePath.split('/').filter(Boolean), 'SKILL.md'].join('/');
@@ -96,7 +102,7 @@ export async function build(registryDir = defaultRegistry, fetchImpl = globalThi
       scan.status = scan.findings.length || scan.sourceError ? 'held' : scan.partial ? 'partial' : 'clear';
     }
     delete scan.at; // keep the index deterministic; the version hash identifies what was checked
-    const version = hash.digest('hex').slice(0, 12);
+    const version = folderVersion(t.files);
     // A held tool is listed only when the Disposable team accepted exactly these findings for exactly this content.
     // Any change to the folder changes the version and voids the review.
     const review = reviewed[t.slug];
