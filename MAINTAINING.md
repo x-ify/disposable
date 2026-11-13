@@ -47,4 +47,9 @@ A review cannot clear a tool held because its external `source` could not be rea
 
 ## Removing a tool
 
-Delete the folder in a pull request. It disappears from the site after index publication and cache refresh but stays in git history. If content must leave history too (rights or personal data), that needs a history rewrite and a force push, decided case by case.
+Requests come through the site's private feedback form. Never ask anyone to repeat the material in public. No response time is promised.
+
+1. **Every case: take it down going forward.** Hide the tool on the site's admin screen right away (its download stops too) and give the reason, then delete its folder in a pull request. It leaves the site and the index after publication and cache refresh, but stays in git history, in forks and behind install links pinned to earlier commits.
+2. **Personal data, a secret or a legal request: also remove it from history.** Rewrite history to drop the files, allow force pushes on `main` only for that push, then restore the protection. Ask GitHub Support to purge cached views and pull request references ([removing sensitive data](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository)). Copies in forks remain, and install links pinned to the rewritten commits break.
+3. **A secret** is never safe again once published: tell the person to revoke or rotate it first, whatever happens to the history.
+4. **A copyright claim** goes through GitHub's [DMCA takedown policy](https://docs.github.com/en/site-policy/content-removal-policies/dmca-takedown-policy); the team hides the tool on the site meanwhile.
