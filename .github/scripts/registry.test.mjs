@@ -278,6 +278,15 @@ test('the canonical registry passes and generates a deterministic index with sou
   assert.equal(index.tools.length, (await readTools(defaultRegistry)).length); assert.equal(serialize(index), serialize(await build(defaultRegistry))); assert.equal(index.source.repo, 'x-ify/disposable'); assert.match(index.source.commit, /^[0-9a-f]{40}$/);
 });
 
+test('a registry with every tool removed builds an empty index instead of failing', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'disposable-empty-'));
+  try {
+    await writeFile(join(dir, 'reviewed.json'), '{"tools":{}}\n');
+    assert.deepEqual(await readTools(dir), []);
+    assert.deepEqual((await build(dir, globalThis.fetch, { repo:'x-ify/disposable', commit:'b'.repeat(40) })).tools, []);
+  } finally { await rm(dir, { recursive:true, force:true }); }
+});
+
 test('the skill checker is the single rule source and agrees with the format document', async () => {
   const skill = await import('../../skills/disposable/scripts/check.mjs');
   const scan = await import('./scan.mjs');

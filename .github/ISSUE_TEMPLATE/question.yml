@@ -5,7 +5,7 @@ labels: [question]
 body:
   - type: markdown
     attributes:
-      value: Keep the tool's name in brackets at the start of the title, like `[focus-timer]`, so the maker sees it. Problems with the Disposable site itself go to the site's Feedback page.
+      value: Keep the tool's name in brackets at the start of the title, like `[my-tool]`, so the maker sees it. Problems with the Disposable site itself go to the site's Feedback page.
   - type: textarea
     id: question
     attributes:
