@@ -34,7 +34,9 @@ export const indexPath = resolve(root, 'registry.json');
 export async function readTools(registryDir = defaultRegistry) {
   const toolsDir = resolve(registryDir, 'tools');
   const tools = [];
-  for (const entry of (await readdir(toolsDir, { withFileTypes: true })).filter(e => e.isDirectory() && !e.name.startsWith('.')).sort((a, b) => a.name.localeCompare(b.name))) {
+  // With every tool removed, git keeps no tools/ folder: that is an empty registry, not a failed build.
+  const entries = await readdir(toolsDir, { withFileTypes: true }).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
+  for (const entry of entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).sort((a, b) => a.name.localeCompare(b.name))) {
     const files = await readFolder(resolve(toolsDir, entry.name));
     const doc = files.find(f => f.path === 'DISPOSABLE.md');
     const parsed = doc?.text != null ? parseDisposable(doc.text) : { problems: ['missing DISPOSABLE.md'] };
