@@ -7,6 +7,7 @@
 - [Front matter](#front-matter)
 - [Sections](#sections)
 - [Skills](#skills)
+- [License](#license)
 - [Changes and ownership](#changes-and-ownership)
 - [Example](#example)
 
@@ -47,7 +48,7 @@ Flat `key: value` lines between `---` markers. Lists are comma separated. A skil
 | `mode` | yes | `browser`, `local`, `ai` or `source` |
 | `device` | yes | `any`, `windows`, `mac`, `linux` or `mobile` |
 | `language` | yes | Original language: `en`, `ko`, `zh-Hans`, `zh-Hant` or `ja` |
-| `license` | yes | `CC0-1.0`, `CC-BY-4.0`, `MIT` or `Apache-2.0` |
+| `license` | yes | `CC0-1.0`, `CC-BY-4.0`, `MIT` or `Apache-2.0`. See [License](#license) |
 | `maintainers` | yes | GitHub logins allowed to change this folder. The first is shown as the publisher |
 | `author` | yes | Original author or attribution, up to 100 characters |
 | `added` | yes | `YYYY-MM-DD`, set by the first pull request |
@@ -95,6 +96,14 @@ origin: https://skills.sh/expo/skills/react-native
 - Derived when left out: `title` from the first `# ` heading of `SKILL.md`, else `name`; `summary` from `description`, cut to 240 characters; `author` from the owner of `source`, else the first maintainer; `language` `en`; `mode` `ai`; `device` `any`; `cost` and `support` empty. Write a key to say otherwise, for example `language: ko` for a skill written in Korean.
 - The five sections are optional for a skill. A section that is written must not be empty.
 - The site shows the instructions (up to 20,000 characters) and an install command pinned to the reviewed commit: `npx skills add https://github.com/<registry>/tree/<commit>/tools/<slug>` for a local skill, `npx skills add <source>/tree/<source_commit>/<source_path>` for an external one.
+
+## License
+
+- Default for what you made yourself: `CC0-1.0` for text (a recipe, a rule, a skill) and `MIT` for code (a program). Choose `CC-BY-4.0` instead of `CC0-1.0` to require credit, or `Apache-2.0` instead of `MIT` for an explicit patent grant.
+- Something from another repository (a skill from skills.sh, linked code) keeps its own license, and it must be one of the four. Disposable never changes another author's license.
+- There is no Disposable license: Open Disposable is a way of sharing, and each tool's own license decides what others may do with it.
+
+By opening a pull request you confirm that you have the right to share everything in it under its stated license. After merge, Disposable republishes the tool (in this repository, on disposable.xify.kr, in its index and in its files for AI readers) under that license, showing its author, license and origin.
 
 ## Changes and ownership
 

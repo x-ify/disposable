@@ -31,7 +31,7 @@ For a skill kept in this folder, leave out `source`, `source_path` and `source_c
 
 1. Find the skill folder: the folder with `SKILL.md` at its root. Read the front matter: `name` must be lowercase letters, digits and single hyphens (up to 64 characters), `description` up to 1024 characters. If either does not follow this, show the problem and fix `SKILL.md` only with the person's agreement.
 2. If the skill already lives in a public GitHub repository of theirs, treat it as an external skill below, with them as the author. Otherwise copy the folder (`SKILL.md` and its scripts, references and assets, no hidden files) into `tools/<slug>/`, with `<slug>` equal to `name`. If that slug is taken in `<repo>`, ask the person to rename the skill; `name` and the folder must stay equal.
-3. License: the `SKILL.md` `license` when it is one of the four; otherwise ask, as for any tool.
+3. License: the `SKILL.md` `license` when it is one of the four; otherwise propose the default for a skill they wrote, `CC0-1.0`, and confirm it.
 4. Write the registration without `source` lines. The first maintainer is shown as the author unless you write `author`.
 
 ## A skill from skills.sh or GitHub
