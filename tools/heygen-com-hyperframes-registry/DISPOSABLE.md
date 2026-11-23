@@ -2,7 +2,7 @@
 type: skill
 source: https://github.com/heygen-com/hyperframes
 source_path: skills/hyperframes-registry
-source_commit: 7b27fbc84ab3134f3d86b0e6baee7f55554965d6
+source_commit: 88295d41fe31e876ceabe86d27aca19fe23332be
 license: Apache-2.0
 maintainers: x-ify
 added: 2026-11-17
