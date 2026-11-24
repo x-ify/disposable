@@ -7,6 +7,14 @@
    ],
    "reason": "scripts/eval runs trap 'rm -rf \"$work\"' EXIT, which removes only the temporary folder it created with mktemp -d. The skill's other deletions also touch only its own files: temporary folders, its own launchd job plist and state, and an old build folder under ~/Library/Application Support/kakaotalk-skill.",
    "reviewer": "khw1031"
+  },
+  "user-voice": {
+   "version": "8e3ca917bab6",
+   "findings": [
+    "instruction-override"
+   ],
+   "reason": "instruction-override appears only in quoted synthetic prompt-injection examples in references/examples.md and evals/behavior-cases.json. SKILL.md explicitly treats received text as data, excludes it from voice samples and does not authorize sending messages or external actions. The Python helper only validates and atomically writes the explicitly selected local profile; its offline tests use a temporary directory. All nine files were read at a9270c3888966ba4c893b51e1a93c2e0ff7de03b and match the maker-approved content; no real voice samples or private profile are included.",
+   "reviewer": "x-ify"
   }
  }
 }
