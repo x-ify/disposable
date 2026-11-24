@@ -314,8 +314,22 @@ test('front matter parsing rejects text that is not the format', () => {
 
 test('the canonical registry passes and generates a deterministic index with source provenance', async () => {
   assert.deepEqual(await check(defaultRegistry), []);
-  const index = await build(defaultRegistry);
-  assert.equal(index.tools.length, (await readTools(defaultRegistry)).length); assert.equal(serialize(index), serialize(await build(defaultRegistry))); assert.equal(index.source.repo, 'x-ify/disposable'); assert.match(index.source.commit, /^[0-9a-f]{40}$/);
+  // Determinism compares identical inputs. A source may time out on only one
+  // pass (CI run 45390522603), so replay the first response, including failures.
+  // The production scanner and its fail-closed source handling are unchanged.
+  const responses = new Map();
+  const fetchSnapshot = async (input, init) => {
+    const key = typeof input === 'string' ? input : input.url || String(input);
+    if (!responses.has(key)) responses.set(key, (async () => {
+      const response = await fetch(input, init);
+      return { body: await response.arrayBuffer(), status: response.status,
+        statusText: response.statusText, headers: [...response.headers] };
+    })());
+    const { body, ...options } = await responses.get(key);
+    return new Response(body.slice(0), options);
+  };
+  const index = await build(defaultRegistry, fetchSnapshot);
+  assert.equal(index.tools.length, (await readTools(defaultRegistry)).length); assert.equal(serialize(index), serialize(await build(defaultRegistry, fetchSnapshot))); assert.equal(index.source.repo, 'x-ify/disposable'); assert.match(index.source.commit, /^[0-9a-f]{40}$/);
 });
 
 test('a registry with every tool removed builds an empty index instead of failing', async () => {
